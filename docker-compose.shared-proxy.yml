@@ -1,0 +1,27 @@
+# Use this when another reverse proxy on the server (e.g. a shared Caddy)
+# already owns ports 80/443. Rafiq's own Caddy is not started; the shared
+# proxy reaches Rafiq's web container over the proxy's Docker network.
+#
+# Enable it by adding these two lines to .env (then plain `docker compose ...`
+# commands use it automatically):
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.shared-proxy.yml
+#   SHARED_PROXY_NETWORK=<name of the shared proxy's Docker network>
+#
+# Then add the rafiq.afrivance.ai block (see deploy/shared-caddy-rafiq.caddy)
+# to the shared Caddyfile and reload it.
+
+services:
+  caddy:
+    profiles: ["own-proxy"]          # Rafiq's own Caddy stays off
+
+  web:
+    networks:
+      internal: {}
+      proxy:
+        aliases: [rafiq-web]         # unique name, so it can't clash with other apps' "web"
+
+networks:
+  proxy:
+    external: true
+    name: ${SHARED_PROXY_NETWORK:?Set SHARED_PROXY_NETWORK in .env}

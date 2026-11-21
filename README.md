@@ -232,6 +232,13 @@ Tested target: Ubuntu 22.04/24.04, 2 GB RAM or more.
 7. **Logs:** `docker compose logs -f web worker`.
 8. Back up `.env` (especially `FIELD_ENCRYPTION_KEY` and `ID_HASH_PEPPER`) somewhere safe. Without them, saved data can't be read.
 
+**Server already has a reverse proxy on ports 80/443** (e.g. a shared Caddy for other apps): don't run Rafiq's own Caddy. Add to `.env`:
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.shared-proxy.yml
+SHARED_PROXY_NETWORK=<the shared proxy's Docker network>
+```
+then `docker compose up -d --build`, paste `deploy/shared-caddy-rafiq.caddy` into the shared Caddyfile, and reload that Caddy. Rafiq's web container joins the proxy network as `rafiq-web`.
+
 **Moving to a Dubai server later:** copy the folder and `.env`, restore a `pg_dump` of the database, update DNS and the Meta webhook URL.
 
 ## Project layout

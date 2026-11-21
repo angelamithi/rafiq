@@ -1,0 +1,27 @@
+# Add this block to the SHARED Caddyfile (the one used by the shared_caddy
+# container), then reload:  docker exec shared_caddy caddy reload --config /etc/caddy/Caddyfile
+# Same protections as Rafiq's own Caddyfile: only the webhooks and /health are public.
+
+rafiq.afrivance.ai {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	@public path /webhook/whatsapp /webhook/telegram /health
+	handle @public {
+		request_body {
+			max_size 512KB
+		}
+		reverse_proxy rafiq-web:8000
+	}
+
+	handle {
+		respond 404
+	}
+}
