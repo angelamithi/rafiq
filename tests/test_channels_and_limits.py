@@ -155,3 +155,29 @@ def test_telegram_renders_bold_safely():
     body = to_payload("1", Outgoing(text="⛔ *You can't work* on a <visit> visa & see https://u.ae/a_b_c"))
     assert body["parse_mode"] == "HTML"
     assert body["text"] == "⛔ <b>You can't work</b> on a &lt;visit&gt; visa &amp; see https://u.ae/a_b_c"
+
+
+async def test_typing_dots_refresh_until_reply(monkeypatch):
+    import asyncio
+
+    from app.channels import sender
+    from app.channels.base import Incoming
+
+    calls: list[str] = []
+
+    class FakeTG:
+        async def typing(self, chat_id):
+            calls.append(chat_id)
+
+        async def answer_callback(self, cid):
+            pass
+
+    monkeypatch.setitem(sender._clients, "telegram", FakeTG())
+    monkeypatch.setitem(sender._REFRESH, "telegram", 0.01)
+    msg = Incoming(channel="telegram", external_id="42", message_id="m1", text="hi")
+    async with sender.keep_typing(msg):
+        await asyncio.sleep(0.05)  # a slow AI reply
+    n = len(calls)
+    assert n >= 3  # shown at once, then refreshed while waiting
+    await asyncio.sleep(0.03)
+    assert len(calls) == n  # stops once the reply is sent

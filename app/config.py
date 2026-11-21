@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     llm_doc_model: str = ""            # optional separate model for reading photos/PDFs; empty = main model
     llm_timeout_seconds: int = 20
     llm_doc_timeout_seconds: int = 45
+    # Gemini 3 "thinking" depth. Lower = faster replies. minimal | low | medium | high ; empty = model default
+    llm_thinking_level: str = "low"
+    intent_thinking_level: str = "minimal"   # picking 1 of 33 labels needs no deep thinking
+    intent_timeout_seconds: int = 10
 
     # --- Photos and PDFs ---
     media_max_bytes: int = 10_000_000  # 10 MB

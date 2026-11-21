@@ -156,9 +156,9 @@ async def understand(text: str, *, user: Any, cfg: dict[str, Any], settings: Any
         return None
     model = cfg.get("intent_model", "default")
     if model == "default":
-        from app.agent.llm import get_main_model
+        from app.agent.llm import get_intent_model
 
-        model = get_main_model()
+        model = get_intent_model()
     if model is None:
         return None
     kv = cfg.get("kv")
@@ -169,5 +169,5 @@ async def understand(text: str, *, user: Any, cfg: dict[str, Any], settings: Any
             await kv.expire(key, 90_000)
         if count > settings.intent_ai_per_day:
             return None
-    label = await classify(text, model, timeout=float(settings.llm_timeout_seconds))
+    label = await classify(text, model, timeout=float(settings.intent_timeout_seconds))
     return INTENTS.get(label)

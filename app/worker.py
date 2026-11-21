@@ -15,7 +15,7 @@ from redis.asyncio import Redis
 from sqlalchemy import delete, select
 
 from app.channels.base import Incoming, Outgoing
-from app.channels.sender import _client, acknowledge, sender_for
+from app.channels.sender import _client, keep_typing, sender_for
 from app.channels.whatsapp import send_template
 from app.config import get_settings
 from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, User, utcnow
@@ -77,11 +77,8 @@ async def enqueue(msg: Incoming) -> None:
 
 
 async def _handle(msg: Incoming, kv: KV) -> None:
-    try:
-        await acknowledge(msg)
-    except Exception:  # typing indicators are best-effort
-        log.info("acknowledge failed")
-    await process_message(msg, kv=kv, send=sender_for(msg.channel))
+    async with keep_typing(msg):
+        await process_message(msg, kv=kv, send=sender_for(msg.channel))
 
 
 async def handle_inline(msg: Incoming) -> None:
