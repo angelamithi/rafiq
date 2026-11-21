@@ -140,9 +140,10 @@ async def test_help_works_mid_setup_and_reprompts(chat: Chat):
 async def test_menu_profile_edit_and_pause(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert "menu:privacy" in chat.ids_of(r)
+    assert "menu:tasks" in chat.ids_of(r) and "menu:profile" in chat.ids_of(r)
     r = await chat.tap("menu:profile")
     assert "Wanjiru" in r[0].text and "15 March 2027" in r[0].text
+    assert "menu:privacy" in chat.ids_of(r)    # privacy moved under My profile
     await chat.tap("profile:edit")
     await chat.tap("edit:name")
     r = await chat.say("Wanjiku")

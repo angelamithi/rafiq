@@ -42,6 +42,12 @@ TOOLS: dict[str, ToolSpec] = {
     "update_own_pay": ToolSpec("update_own_pay"),     # record paid/part/unpaid, check-ins on/off
     "draft_complaint": ToolSpec("draft_complaint"),   # builds text for the USER to send; Rafiq sends nothing
     "update_own_wellbeing_pref": ToolSpec("update_own_wellbeing_pref"),  # Module 7: weekly check-ins on/off
+    # "Do it for me"
+    "update_own_toolkit": ToolSpec("update_own_toolkit"),   # employer, salary, rate alert... (own record only)
+    "build_document": ToolSpec("build_document"),           # makes a PDF for the USER; Rafiq sends it nowhere else
+    "get_own_vault": ToolSpec("get_own_vault"),             # own saved documents only (filtered by user id)
+    "update_own_vault": ToolSpec("update_own_vault"),       # save / delete own documents
+    "send_sos": ToolSpec("send_sos", outward=True),         # ONLY to the opted-in trusted contact, after confirmation
 }
 
 # Which node may call which tool. Later modules add their own entries.
@@ -57,6 +63,8 @@ NODE_ALLOWLIST: dict[str, set[str]] = {
     "social": {"get_own_profile", "update_own_wellbeing_pref"},
     "money": {"get_own_profile"},   # read-only: home country for the currency name; stores nothing
     "help": {"get_own_profile"},    # read-only: home country, to show the right embassy
+    "tasks": {"get_own_profile", "update_own_toolkit", "build_document", "get_own_vault", "update_own_vault",
+              "send_sos"},
     "fallback": set(),
 }
 

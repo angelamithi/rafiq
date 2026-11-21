@@ -34,6 +34,14 @@ def verify_signature(raw_body: bytes, header: str | None) -> bool:
     return hmac.compare_digest(expected, header.removeprefix("sha256="))
 
 
+def _coord(v: Any, limit: float) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(f, 5) if -limit <= f <= limit else None
+
+
 def parse_webhook(payload: dict[str, Any]) -> list[Incoming]:
     out: list[Incoming] = []
     for entry in payload.get("entry", []) or []:
@@ -58,6 +66,12 @@ def parse_webhook(payload: dict[str, Any]) -> list[Incoming]:
                 elif mtype == "button":  # quick reply on a template message
                     b = m.get("button") or {}
                     msg.kind, msg.button_id, msg.text = "button", b.get("payload"), b.get("text", "")
+                elif mtype == "location":
+                    loc = m.get("location") or {}
+                    msg.kind = "location"
+                    msg.latitude, msg.longitude = _coord(loc.get("latitude"), 90), _coord(loc.get("longitude"), 180)
+                    if msg.latitude is None or msg.longitude is None:
+                        msg.kind = "unsupported"
                 elif mtype in {"image", "audio", "voice", "document", "video", "sticker"}:
                     media = m.get(mtype) or {}
                     msg.kind, msg.media_type = "media", mtype
@@ -121,11 +135,40 @@ class WhatsAppClient:
         except httpx.HTTPError:
             log.info("typing indicator failed (non-fatal)")
 
+    async def _upload(self, data: bytes, filename: str, mime: str) -> str:
+        url = self.url.rsplit("/", 1)[0] + "/media"
+        r = await self.http.post(url, headers=self.headers, data={"messaging_product": "whatsapp", "type": mime},
+                                 files={"file": (filename, data, mime)})
+        if r.status_code >= 400:
+            log.error("WhatsApp media upload failed: status=%s", r.status_code)
+            r.raise_for_status()
+        return str(r.json()["id"])
+
     async def send(self, to: str, msg: Outgoing) -> None:
+        if msg.file:
+            await self._send_file(to, msg)
+            if msg.buttons or msg.menu:   # WhatsApp files can't carry buttons: send them right after
+                await self.send(to, msg.model_copy(update={"file": None, "text": "👇"}))
+            return
         r = await self.http.post(self.url, json=to_payload(to, msg), headers=self.headers)
         if r.status_code >= 400:
             # Never log the full response body: it can echo the recipient's number.
             log.error("WhatsApp send failed: status=%s", r.status_code)
+            r.raise_for_status()
+
+
+    async def _send_file(self, to: str, msg: Outgoing) -> None:
+        mime = msg.file_mime or "application/pdf"
+        name = msg.filename or "document.pdf"
+        media_id = await self._upload(msg.file or b"", name, mime)
+        kind = "image" if mime in ("image/jpeg", "image/png") else "document"
+        body: dict[str, Any] = {"id": media_id, "caption": fit(msg.text, 1024)}
+        if kind == "document":
+            body["filename"] = name
+        payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, "type": kind, kind: body}
+        r = await self.http.post(self.url, json=payload, headers=self.headers)
+        if r.status_code >= 400:
+            log.error("WhatsApp file send failed: status=%s", r.status_code)
             r.raise_for_status()
 
 

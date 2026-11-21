@@ -18,7 +18,7 @@ from app.channels.base import Incoming, Outgoing
 from app.channels.sender import _client, keep_typing, sender_for
 from app.channels.whatsapp import send_template
 from app.config import get_settings
-from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, User, utcnow
+from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, VaultDoc, utcnow
 from app.db.session import init_db, sessionmaker
 from app.logging_setup import setup_logging
 from app.security.ratelimit import KV
@@ -108,6 +108,8 @@ async def cleanup(ctx: dict[str, Any]) -> None:
             await session.execute(delete(ArrivalPlan).where(ArrivalPlan.user_id.in_(stale)))
             await session.execute(delete(PayRecord).where(PayRecord.user_id.in_(stale)))
             await session.execute(delete(SocialPrefs).where(SocialPrefs.user_id.in_(stale)))
+            await session.execute(delete(Toolkit).where(Toolkit.user_id.in_(stale)))
+            await session.execute(delete(VaultDoc).where(VaultDoc.user_id.in_(stale)))
             await session.execute(delete(User).where(User.id.in_(stale)))
             session.add(AuditLog(user_ref=None, event="retention_cleanup", detail=f"removed {len(stale)} users"))
         await session.execute(delete(AuditLog).where(AuditLog.created_at < now - AUDIT_RETENTION))
@@ -122,7 +124,8 @@ async def send_reminder(r) -> bool:  # type: ignore[no-untyped-def]
     if r.channel == "whatsapp":
         kind = getattr(r, "kind", "visa")
         template = {"departure": s.whatsapp_departure_template, "arrival": s.whatsapp_arrival_template,
-                    "pay": s.whatsapp_pay_template, "social": s.whatsapp_social_template}.get(kind, s.whatsapp_visa_template)
+                    "pay": s.whatsapp_pay_template, "social": s.whatsapp_social_template,
+                    "vault": s.whatsapp_vault_template, "rate": s.whatsapp_rate_template}.get(kind, s.whatsapp_visa_template)
         if not template:
             log.info("No WhatsApp template set for %s reminders; skipping", kind)
             return False
@@ -182,6 +185,24 @@ async def wellbeing_checkins(ctx: dict[str, Any]) -> None:
     log.info("Wellbeing check-ins sent: %s", n)
 
 
+async def vault_reminders(ctx: dict[str, Any]) -> None:
+    from datetime import date
+
+    from app.modules.tasks.vault import send_due_vault_reminders
+
+    async with sessionmaker()() as session:
+        n = await send_due_vault_reminders(session, ctx["kv"], send_reminder, date.today())
+    log.info("Document expiry reminders sent: %s", n)
+
+
+async def rate_alerts(ctx: dict[str, Any]) -> None:
+    from app.modules.tasks.rates import check_rate_alerts
+
+    async with sessionmaker()() as session:
+        n = await check_rate_alerts(session, ctx["kv"], send_reminder, get_settings().fx_url)
+    log.info("Rate alerts sent: %s", n)
+
+
 async def notify_admin(text: str) -> None:
     """Team alerts only (never users). Telegram chat set in ADMIN_TELEGRAM_CHAT_ID."""
     s = get_settings()
@@ -218,6 +239,8 @@ class WorkerSettings:
         cron(salary_checkins, hour={14}, minute={0}),   # 18:00 in the UAE, after most shifts
         cron(wellbeing_checkins, weekday={4}, hour={14}, minute={15}),   # Fridays, 18:15 in the UAE
         cron(rule_monitor, weekday={0}, hour={3}, minute={0}),            # Mondays, 07:00 in the UAE
+        cron(vault_reminders, hour={5}, minute={30}),                     # 09:30 in the UAE
+        cron(rate_alerts, hour={4, 8, 12, 16}, minute={45}),              # 4 times a day
     ]
     on_startup = startup
     redis_settings = _redis_settings()

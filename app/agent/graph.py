@@ -1,6 +1,6 @@
 """The LangGraph agent.
 
-    START -> route -> onboarding | menu | privacy | fallback | job_safety | stay_legal | departure | arrival | pay | social | money | help -> END
+    START -> route -> onboarding | menu | privacy | fallback | job_safety | stay_legal | departure | arrival | pay | social | money | help | tasks -> END
 
 Input and output guards run in app/service.py, *outside* the graph, so no
 node (and no future AI node) can skip them. Later modules add their own nodes
@@ -27,12 +27,13 @@ from app.modules.pay.node import pay
 from app.modules.social.node import crisis_intent, social
 from app.modules.job_safety.rules import looks_like_offer
 from app.modules.stay_legal.node import legal_intent, stay_legal
+from app.modules.tasks.node import JOIN_RE, tasks
 from app.agent.parsing import simplify
 from app.agent.state import AgentState, ctx
 
 COMMANDS: dict[str, set[str]] = {
     "menu": {"menu", "main menu", "home", "options", "0"},
-    "help": {"help", "emergency", "help me", "sos"},
+    "help": {"help", "emergency", "help me"},
     "profile": {"profile", "my profile", "my details"},
     "privacy": {"privacy"},
     "export": {"my data", "see my data", "export", "show my data"},
@@ -103,6 +104,22 @@ COMMANDS: dict[str, set[str]] = {
     "numbers": {"numbers", "useful numbers", "emergency numbers", "important numbers", "phone numbers"},
     "unsafe": {"not safe", "i am not safe", "i m not safe", "unsafe", "abuse", "i am abused", "human trafficking",
                "trafficking", "help me please", "domestic violence"},
+    # "Do it for me"
+    "tasks": {"do it for me", "tasks", "do this for me", "toolkit"},
+    "pack": {"evidence pack", "unpaid wages pack", "wages pack", "wage pack", "unpaid wages", "evidence",
+             "wage theft", "wage record", "unpaid salary record", "proof of unpaid salary"},
+    "vault": {"my documents", "documents", "document vault", "vault", "save document", "save a document",
+              "save my passport", "my papers", "document safe", "save my documents", "passport copy", "copy of my passport"},
+    "sos_menu": {"trusted contact", "sos contact", "emergency contact", "my trusted contact", "set up sos"},
+    "sos": {"sos", "send sos", "alert my contact", "send an sos"},
+    "sos_leave": {"stop sos"},
+    "rate": {"rate alert", "exchange rate alert", "rate alerts", "alert me about the rate", "tell me when the rate goes up"},
+    "forms": {"letters", "letter", "forms", "write a letter", "letters and forms", "passport letter",
+              "leave letter", "resignation letter", "salary certificate", "resign", "resignation"},
+    "contract": {"contract check", "contract switch", "compare contract", "check my contract", "contract substitution",
+                 "contract switch check", "compare my contract"},
+    "task_status": {"what are you doing for me", "my reminders", "my alerts", "what i m doing for you",
+                    "what are you doing for you", "status"},
     "stop": {"stop", "unsubscribe", "pause"},
     "start": {"start", "resume"},
     "greeting": {"hi", "hello", "hey", "hiya", "salaam", "salam", "hi rafiq", "hello rafiq",
@@ -120,6 +137,7 @@ PLAN_COMMANDS = {"plan", "plan_date"}
 ARRIVE_COMMANDS = {"arrive", "arrive_date"}
 SOCIAL_COMMANDS = {"social", "lonely", "free_things", "meet", "talk", "wellbeing_checkin", "mood_good", "mood_ok",
                    "mood_hard"}
+TASK_COMMANDS = {"tasks", "pack", "vault", "sos_menu", "sos", "rate", "forms", "contract", "task_status"}
 HELP_COMMANDS = {"help", "embassy", "lost_passport", "report_crime", "police_trouble", "numbers", "unsafe"}
 MONEY_COMMANDS = {"money", "send_money", "compare_costs", "budget", "loans", "money_scams", "rent_account"}
 PAY_COMMANDS = {"pay", "salary_watch", "salary_late", "pay_paid", "pay_part", "pay_unpaid", "complaint", "gratuity",
@@ -174,6 +192,11 @@ def _rule_route(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     if msg.kind == "text" and unsafe_intent(state.get("text", "")):
         return {"command": "unsafe_detected", "route": "help"}
 
+    # Someone accepting a trusted-contact invite (often new to Rafiq), or removing themselves.
+    if msg.kind == "text" and JOIN_RE.match(state.get("text", "")):
+        return {"command": "sos_join", "route": "tasks"}
+    if command == "sos_leave":
+        return {"command": "sos_leave", "route": "tasks"}
     if user.step == "new":
         return {"command": None, "route": "onboarding"}
 
@@ -183,6 +206,8 @@ def _rule_route(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         user.step, user.return_to = "consent", "ready"
         return {"command": None, "route": "onboarding", "reconsent": True}
 
+    if user.step.startswith("task:") and bid and prefix != "task":
+        user.step = "ready"     # tapped something else: leave the task
     if prefix in ("privacy", "delete"):
         return {"command": command, "route": "privacy"}
     if bid == "menu:job" or prefix == "job":
@@ -199,6 +224,18 @@ def _rule_route(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         return {"command": command, "route": "social"}
     if bid == "menu:money" or prefix == "money":
         return {"command": command, "route": "money"}
+    if (bid == "menu:tasks" or prefix == "task") and user.consent_status == "granted":
+        return {"command": command, "route": "tasks"}
+    # A shared location is only ever used for an SOS.
+    if msg.kind == "location" and user.consent_status == "granted":
+        return {"command": "location", "route": "tasks"}
+    # Waiting for an answer to a task question: a known command leaves the task;
+    # anything else (text, photo, PDF) is the answer.
+    if user.step.startswith("task:"):
+        if msg.kind == "text" and command:
+            user.step = "ready"
+        else:
+            return {"command": "task_input", "route": "tasks"}
     if (bid == "menu:help" or prefix == "help") and user.step not in nodes.ONBOARDING_STEPS:
         return {"command": command, "route": "help"}
     if prefix in ("menu", "profile"):
@@ -221,6 +258,9 @@ def _rule_route(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             return {"command": command, "route": "money"}
         if command in HELP_COMMANDS:
             return {"command": command, "route": "help"}
+        if command in TASK_COMMANDS:
+            user.step = "ready"
+            return {"command": command, "route": "tasks"}
         if command in LEGAL_COMMANDS:
             user.step = "ready"
             return {"command": command, "route": "stay_legal"}
@@ -264,6 +304,8 @@ def _rule_route(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         return {"command": command, "route": "money"}
     if command in HELP_COMMANDS:
         return {"command": command, "route": "help"}
+    if command in TASK_COMMANDS:
+        return {"command": command, "route": "tasks"}
     if command:
         return {"command": command, "route": "menu"}
     if msg.kind == "text" and looks_like_offer(state.get("text", "")):
@@ -315,8 +357,9 @@ def build_graph():  # type: ignore[no-untyped-def]
     g.add_node("social", social)
     g.add_node("money", money)
     g.add_node("help", help_node)
+    g.add_node("tasks", tasks)
     g.add_edge(START, "route")
-    routes = ["onboarding", "menu", "privacy", "fallback", "job_safety", "stay_legal", "departure", "arrival", "pay", "social", "money", "help"]
+    routes = ["onboarding", "menu", "privacy", "fallback", "job_safety", "stay_legal", "departure", "arrival", "pay", "social", "money", "help", "tasks"]
     g.add_conditional_edges("route", _pick, routes)
     for n in routes:
         g.add_edge(n, END)

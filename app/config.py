@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # AI intent understanding for messages the rules don't recognise (picks a topic only).
     intent_ai_enabled: bool = True
     intent_ai_per_day: int = 50
+
+    # --- "Do it for me" tasks ---
+    tasks_enabled: bool = True
+    fx_url: str = "https://open.er-api.com/v6/latest/AED"   # host must be in app/modules/tasks/rates.py ALLOWED_HOSTS
     # Voice notes (Language & Voice): transcribed and translated to English by the doc model (Gemini).
     voice_enabled: bool = True
     voice_max_bytes: int = 3_000_000
@@ -51,11 +55,16 @@ class Settings(BaseSettings):
     rule_monitor_enabled: bool = True
     admin_telegram_chat_id: str = ""
     whatsapp_social_template: str = ""      # approved template for the opt-in weekly "how was your week?" check-in
+    whatsapp_vault_template: str = ""       # "Do it for me": a saved document is about to expire
+    whatsapp_rate_template: str = ""        # "Do it for me": exchange-rate alert reached
+    whatsapp_sos_template: str = ""         # "Do it for me": SOS to a trusted contact (outside the 24 h window)
+    whatsapp_public_number: str = ""        # e.g. 9715XXXXXXXX, for wa.me invite links (digits only)
     whatsapp_template_language: str = "en"
 
     # --- Telegram (development channel) ---
     telegram_enabled: bool = False
     telegram_bot_token: str = ""
+    telegram_bot_username: str = ""         # without @, for t.me invite links
     telegram_webhook_secret: str = ""
 
     # --- AI model: Google Gemini (key in GOOGLE_API_KEY). Rules still work if it's off. ---
@@ -83,7 +92,7 @@ class Settings(BaseSettings):
     guard_cooldown_minutes: int = 30
 
     # --- Privacy ---
-    privacy_policy_version: str = "2026-11-20.1"  # v9: unclear messages may be sent to Gemini to find the topic
+    privacy_policy_version: str = "2026-11-21.1"  # v10: "Do it for me" (documents, employer/salary, trusted contact)
     data_retention_days_inactive: int = 365
 
     @property

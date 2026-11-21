@@ -165,7 +165,7 @@ async def test_llm_extractor_timeout_and_errors_fall_back():
 async def test_menu_shows_job_check_first(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert chat.ids_of(r)[0] == "menu:job"
+    assert chat.ids_of(r)[:2] == ["menu:tasks", "menu:job"]
 
 
 async def test_check_scam_offer_end_to_end(chat: Chat):

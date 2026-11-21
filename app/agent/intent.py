@@ -104,6 +104,19 @@ INTENTS: dict[str, Intent] = {
     "police_trouble": Intent("help", "police_trouble", "police or court trouble",
                              "arrested, detained, police case, court case, travel ban"),
     "emergency_numbers": Intent("help", "numbers", "useful numbers", "emergency or helpline phone numbers"),
+    # "Do it for me" tasks
+    "evidence_pack": Intent("tasks", "pack", "an unpaid wages record",
+                            "make a document or proof of unpaid wages, how much the employer owes, prepare a case"),
+    "document_vault": Intent("tasks", "vault", "your saved documents",
+                             "keep or store a copy of passport, visa, Emirates ID or contract; document expiry reminders"),
+    "trusted_contact": Intent("tasks", "sos_menu", "your trusted contact",
+                              "set up an emergency contact or family member to alert if in danger"),
+    "rate_alert": Intent("tasks", "rate", "a rate alert",
+                         "be told when the exchange rate is good, wait for a better rate before sending money"),
+    "letters": Intent("tasks", "forms", "letters and forms",
+                      "write a letter to the employer: passport back, leave request, resignation, salary certificate, payslips"),
+    "contract_check": Intent("tasks", "contract", "the contract switch check",
+                             "the contract is different from the job offer, compare contract and offer, asked to sign a new contract"),
 }
 LABELS = frozenset(INTENTS) | {"none"}
 

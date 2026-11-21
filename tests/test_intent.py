@@ -67,9 +67,9 @@ def test_only_an_exact_known_label_counts(raw, expected):
 
 def test_no_dangerous_actions_are_reachable():
     commands = {i.command for i in it.INTENTS.values()}
-    assert not commands & {"delete", "export", "profile", "privacy", "start", "stop"}
+    assert not commands & {"delete", "export", "profile", "privacy", "start", "stop", "sos", "sos_leave", "sos_join"}
     assert {i.route for i in it.INTENTS.values()} <= {"job_safety", "stay_legal", "departure", "arrival", "pay",
-                                                      "social", "money", "help"}
+                                                      "social", "money", "help", "tasks"}
 
 
 # ------------------------------------------------------------------ attacks & safety

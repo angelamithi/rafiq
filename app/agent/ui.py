@@ -31,6 +31,7 @@ class MenuItem:
 
 # Module 1 menu. Later modules insert their items ABOVE these (most useful first).
 MENU_ITEMS: list[MenuItem] = [
+    MenuItem("menu:tasks", "menu_tasks", "menu_tasks_d"),      # "Do it for me"
     MenuItem("menu:job", "menu_job", "menu_job_d"),            # Module 2
     MenuItem("menu:legal", "menu_legal", "menu_legal_d"),      # Module 3
     MenuItem("menu:plan", "menu_plan", "menu_plan_d"),         # Module 4
@@ -39,7 +40,6 @@ MENU_ITEMS: list[MenuItem] = [
     MenuItem("menu:money", "menu_money", "menu_money_d"),      # Module 8
     MenuItem("menu:social", "menu_social", "menu_social_d"),   # Module 7
     MenuItem("menu:profile", "menu_profile", "menu_profile_d"),
-    MenuItem("menu:privacy", "menu_privacy", "menu_privacy_d"),
     MenuItem("menu:help", "menu_help", "menu_help_d"),
 ]
 
@@ -145,7 +145,8 @@ def welcome_back(lang: str | None, user: User) -> Outgoing:
 def profile_view(lang: str | None, user: User) -> Outgoing:
     return Outgoing(
         text=t("profile_view", lang, **_profile_values(user, lang)),
-        buttons=[Button(id="profile:edit", title=t("btn_edit_details", lang)), Button(id="menu:main", title=t("btn_menu", lang))],
+        buttons=[Button(id="profile:edit", title=t("btn_edit_details", lang)),
+                 Button(id="menu:privacy", title=t("menu_privacy", lang)), Button(id="menu:main", title=t("btn_menu", lang))],
     )
 
 
@@ -191,6 +192,10 @@ def export_message(lang: str | None, user: User) -> Outgoing:
         lines.append(f"• {t('field_salary_record', lang)}: {data['salary_record'] or ns}")
     if data.get("wellbeing_checkins"):
         lines.append(f"• {t('field_wellbeing', lang)}: {t('on' if data['wellbeing_checkins'] == 'on' else 'off', lang)}")
+    for key in ("employer", "monthly_salary", "job_start", "trusted_contact", "rate_alert"):
+        if data.get(key):
+            lines.append(f"• {t('field_' + key, lang)}: {data[key]}")
+    lines.append(f"• {t('field_vault', lang)}")
     return Outgoing(
         text=t("export", lang, data="\n".join(lines)),
         buttons=[Button(id="privacy:delete", title=t("btn_delete_data", lang)), Button(id="menu:main", title=t("btn_menu", lang))],

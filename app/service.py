@@ -37,6 +37,9 @@ from app.security.ratelimit import KV, Limiter
 log = logging.getLogger(__name__)
 
 Send = Callable[[str, Outgoing], Awaitable[None]]
+# Sends to someone other than the person chatting: (channel, address, message, whatsapp template).
+# Only the SOS feature uses it, and only towards a trusted contact who opted in.
+Relay = Callable[[str, str, Outgoing, "tuple[str, list[str]] | None"], Awaitable[None]]
 
 
 def _own_values(user: Any) -> set[str]:
@@ -46,6 +49,10 @@ def _own_values(user: Any) -> set[str]:
         vals.add(name)
     if expiry := repo.get_visa_expiry(user):
         vals |= {expiry.isoformat(), fmt_date(expiry)}
+    kit = repo.toolkit(user)
+    for key in ("employer", "contact_name"):
+        if isinstance(kit.get(key), str) and len(kit[key]) >= 2:
+            vals.add(kit[key])
     return vals
 
 
@@ -97,6 +104,7 @@ async def process_message(
     settings: Settings | None = None,
     today: date | None = None,
     agent_context: dict[str, Any] | None = None,
+    relay: Relay | None = None,
 ) -> list[Outgoing]:
     """Run one incoming message through the full pipeline. Returns what was sent."""
     settings = settings or get_settings()
@@ -175,7 +183,7 @@ async def process_message(
         # 5. agent
         state: AgentState = {"incoming": msg, "text": text, "user": user, "is_new": is_new, "replies": [], "events": [],
                              "content_guard": content_guard}
-        config = {"configurable": {"settings": settings, "today": today, "kv": kv, **(agent_context or {})}}
+        config = {"configurable": {"settings": settings, "today": today, "kv": kv, "db": session, **(agent_context or {})}}
         try:
             result = await build_graph().ainvoke(state, config=config)
         except Exception:
@@ -205,9 +213,30 @@ async def process_message(
         if reasons:
             await repo.audit(session, user.id, "output_guard", ",".join(sorted(set(reasons)))[:255])
 
+        # 6b. Messages for a trusted contact (SOS only) pass the same output guard.
+        outbox: list[tuple[str, str, Outgoing, Any, bool]] = []
+        for item in result.get("outbox", []) or []:
+            safe_out, why = guard_replies([item["out"]], _own_values(user), lang)
+            if why:
+                await repo.audit(session, user.id, "output_guard_relay", ",".join(sorted(set(why)))[:255])
+            outbox.append((item["channel"], item["to"], safe_out[0], item.get("template"), bool(item.get("is_sos"))))
+
         if result.get("delete_user"):
             await repo.delete_user(session, user)
         await session.commit()
 
     # 7. send
-    return await deliver(replies)
+    sent = await deliver(replies)
+    if outbox:
+        if relay is None:
+            from app.channels.sender import relay as default_relay
+
+            relay = default_relay
+        for channel, to, out, template, is_sos in outbox:
+            try:
+                await relay(channel, to, out, template)
+            except Exception:
+                log.exception("Relay to trusted contact failed")
+                if is_sos:   # the user must know their alert didn't arrive
+                    sent = [*sent, *await deliver([Outgoing(text=t("sos_relay_failed", lang))])]
+    return sent

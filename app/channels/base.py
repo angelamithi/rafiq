@@ -10,7 +10,7 @@ class Incoming(BaseModel):
     channel: str                      # whatsapp | telegram
     external_id: str                  # phone number (WhatsApp) or chat id (Telegram); verified by webhook
     message_id: str
-    kind: str = "text"                # text | button | media | unsupported
+    kind: str = "text"                # text | button | media | location | unsupported
     text: str = ""
     button_id: str | None = None
     media_type: str | None = None     # image | document | audio | voice | video | sticker
@@ -18,6 +18,8 @@ class Incoming(BaseModel):
     mime_type: str | None = None      # as declared by the sender; re-checked from file bytes
     callback_id: str | None = None    # Telegram callback query id
     duration: int | None = None       # seconds, for voice notes when the channel reports it
+    latitude: float | None = None     # shared location (used only for an SOS; never stored)
+    longitude: float | None = None
 
 
 class Button(BaseModel):
@@ -41,6 +43,10 @@ class Outgoing(BaseModel):
     text: str
     buttons: list[Button] = Field(default_factory=list)   # max 3 (WhatsApp limit)
     menu: ListMenu | None = None                          # max 10 rows (WhatsApp limit)
+    # Optional file (a PDF Rafiq made, or the user's own saved document). `text` is the caption.
+    file: bytes | None = None
+    filename: str | None = None
+    file_mime: str | None = None
 
     def all_option_ids(self) -> list[str]:
         ids = [b.id for b in self.buttons]

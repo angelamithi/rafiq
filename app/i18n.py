@@ -36,9 +36,13 @@ S: dict[str, dict[str, str]] = {
     "consent_more": {
         "en": (
             "More detail 🔒\n\n"
-            "• *What I save:* name (optional), home country, journey stage, visa type and expiry, work sector. If you use them: travel or arrival date, checklist ticks, salary record (paid or not, never amounts), and whether check-ins are on (never your answers).\n"
-            "• *Not saved:* your messages, photos or voice notes.\n"
-            "• *Job offers, voice notes and messages I don't understand:* used to help you, then not kept. I may send them to our AI provider, Google Gemini. Phone numbers and emails are removed from typed text; photos, PDFs and voice notes go as they are, so cover your passport or ID number.\n"
+            "• *What I save:* name (optional), home country, journey stage, visa type and expiry, work sector. If you use them: "
+            "travel or arrival date, checklist ticks, salary record, check-ins on/off (never your answers), and for *Do it for me*: "
+            "employer, salary, job start, rate alert, documents you save, a trusted contact's name and chat (they agree first).\n"
+            "• *Not saved:* your messages, voice notes, or photos you don't save.\n"
+            "• *Job offers, voice notes and messages I don't understand:* used to help you, then not kept. They may go to "
+            "Google Gemini. Phone numbers and emails are removed from typed text; photos, PDFs and voice notes go as they are, "
+            "so cover your passport or ID number.\n"
             "• *Who sees it:* only you and the Rafiq system. Never sold or shared.\n"
             "• *How long:* until you delete it, or {months} months without using Rafiq.\n"
             "• *Laws:* UAE Personal Data Protection Law, and Kenya's Data Protection Act.\n\n"
@@ -155,7 +159,7 @@ S: dict[str, dict[str, str]] = {
     "btn_yes_delete": {"en": "Yes, delete"},
     "btn_no_keep": {"en": "No, keep it"},
     "menu_profile": {"en": "My profile"},
-    "menu_profile_d": {"en": "See or change your details"},
+    "menu_profile_d": {"en": "Your details, privacy and your data"},
     "menu_privacy": {"en": "Privacy & my data"},
     "menu_privacy_d": {"en": "See, download or delete your data"},
     "menu_help": {"en": "Help & emergencies"},

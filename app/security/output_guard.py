@@ -50,6 +50,8 @@ ALLOWED_LINK_DOMAINS = {
     # Module 9: embassies / consulates (each mission's own domain) and the UAE list of missions
     "cgidubai.gov.in", "indembassyuae.gov.in", "dfa.gov.ph", "pakistanconsulatedubai.ae", "bcgdubai.gov.bd",
     "nepalembassy.gov.np", "mofa.go.ug", "mofa.gov.ae",
+    # "Do it for me": SOS location links (this exact host only)
+    "maps.google.com",
 }
 
 # Public numbers the agent is allowed to share.
@@ -71,8 +73,25 @@ class OutputCheck:
     reasons: list[str] = field(default_factory=list)
 
 
+def _own_invite_link(u) -> bool:  # type: ignore[no-untyped-def]
+    """t.me / wa.me links are allowed only when they point at Rafiq itself
+    (trusted-contact invites), never at another bot, channel or number."""
+    from app.config import get_settings
+
+    s = get_settings()
+    host, path = (u.hostname or "").lower(), (u.path or "").strip("/")
+    if host == "t.me" and s.telegram_bot_username:
+        return path.lower() == s.telegram_bot_username.lower().lstrip("@")
+    if host == "wa.me" and s.whatsapp_public_number:
+        return path == "".join(ch for ch in s.whatsapp_public_number if ch.isdigit())
+    return False
+
+
 def _domain_allowed(url: str) -> bool:
-    host = (urlparse(url if "://" in url else f"https://{url}").hostname or "").lower()
+    u = urlparse(url if "://" in url else f"https://{url}")
+    host = (u.hostname or "").lower()
+    if host in ("t.me", "wa.me"):
+        return _own_invite_link(u)
     return any(host == d or host.endswith("." + d) for d in ALLOWED_LINK_DOMAINS)
 
 

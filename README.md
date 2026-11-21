@@ -153,6 +153,40 @@ Set `WHATSAPP_SOCIAL_TEMPLATE=<template name>` in `.env`.
 - Numbers checked against the official u.ae crime and safety page on 2026-11-19.
 - **Guard fix found by this module's tests:** the output guard used to strip a valid official link when a comma or full stop came right after it. Trailing punctuation is now ignored when checking links (regression test included).
 
+## "Do it for me": tasks Rafiq carries out
+
+Rafiq doesn't just answer questions, it does jobs for the user. The rule for all of them: **Rafiq prepares, the user confirms, and Rafiq only acts on the user's own things or towards a person the user chose who agreed.** It never contacts an employer, agency or government office.
+
+Open *Do it for me* (first row of the main menu) or type the task name.
+
+| Task | What Rafiq does | Type |
+| --- | --- | --- |
+| Unpaid wages pack | Asks for employer, salary and start date once, uses the salary record (or asks which months were missed) and builds a PDF: salary table, amount owed, end-of-service estimate, the law that applies, next steps and a ready complaint letter. | *evidence pack* |
+| My documents | Encrypted copies of passport, visa, Emirates ID, contract or offer. Gemini transcribes the page, rules pick the expiry date, and the user confirms it. Reminders 90/30/7 days before expiry. A visa's date also updates the visa reminders. Tap to get a copy back. Max 12 files, 5 MB each. | *my documents* |
+| Trusted contact (SOS) | The user names someone. Rafiq gives an invite (code `JOIN ABCD1234`, plus a one-tap link when `TELEGRAM_BOT_USERNAME` / `WHATSAPP_PUBLIC_NUMBER` are set). Only after that person sends the code are they linked. *sos* asks for confirmation, can add a live location, then alerts the contact with a map link and the embassy. The contact can leave with *stop sos*. | *trusted contact*, *sos* |
+| Rate alert | Shows today's mid-market rate for the home currency and messages the user once when it reaches their target (+1%, +2% or their own number). | *rate alert* |
+| Letters & forms | A few questions, then a PDF letter: passport return, annual leave, salary certificate, resignation notice, payslips. The employer name is remembered. | *letters* |
+| Contract switch check | Compares the offer that was promised with the contract the worker is asked to sign: salary, job title, hours, leave and length. Flags anything worse as possible contract substitution and gives the MOHRE number. Can save both copies. | *contract check* |
+| What I'm doing for you | One screen listing every reminder, alert, check-in, saved document and contact Rafiq is looking after. | *my reminders* |
+
+**Security of the tasks**
+
+- **Tool misuse / privilege escalation:** the `tasks` node has its own allow-list. `send_sos` is the only outward tool in Rafiq. It needs a confirmation nonce created by the user's own tap, sends only to the opted-in contact, and is limited to 3 per hour. A stray or forged "send" button does nothing.
+- **Invite abuse:** codes are random, single-use and expire after 48 hours. Join attempts are limited to 5 a day, and your own code is refused. Nobody can be added as a contact without sending the code themselves.
+- **Data leakage:** documents and their dates are Fernet-encrypted. Every vault lookup is filtered by the owner's id, so a guessed id returns nothing. Locations are never stored: one is held for 10 minutes, encrypted, only if the user hasn't sent the SOS yet. Messages to the contact pass the same output guard. Delete-my-data and retention cleanup remove all of it.
+- **Indirect prompt injection:** in offers, contracts and ID pages the AI only transcribes. Dates and terms are picked out and compared by rules, so a document can't "say" it is fine.
+- **Safe outputs:** PDFs escape every typed value, so a value can't inject markup or links. `t.me` / `wa.me` links pass the output guard only when they point at Rafiq's own bot or number. Exchange rates come only from the allow-listed host, over HTTPS, with no redirects, and are cached for an hour.
+
+### WhatsApp templates for tasks (submit to Meta, category Utility)
+
+```
+rafiq_doc_expiry:  Rafiq reminder: your {{1}} expires on {{2}} ({{3}} days). Start the renewal now so you always have valid papers. Reply MENU for help.
+rafiq_rate_alert:  Rafiq rate alert: 1 AED = {{2}} {{1}} today, at or above your target of {{3}}. Compare providers before you send. Reply COMPARE for tips.
+rafiq_sos_alert:   SOS from {{1}} via Rafiq. They say they need help and may be in danger. Location: {{2}}. Call or message them now. In the UAE, police: 999. Human trafficking & abuse line: 800 7283.
+```
+
+Set `WHATSAPP_VAULT_TEMPLATE`, `WHATSAPP_RATE_TEMPLATE` and `WHATSAPP_SOS_TEMPLATE` to the approved names.
+
 ## Official Knowledge Base & Rule Monitor
 
 - **One registry of every rule Rafiq relies on** (`app/knowledge/registry.py`): 24 facts, each with its module, official source, check mode and the date it was last verified.

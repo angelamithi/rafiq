@@ -180,7 +180,12 @@ async def test_forged_complaint_ids_fall_back_to_menu(chat: Chat):
 
 def test_rafiq_has_no_outward_tool_for_complaints():
     assert not TOOLS["draft_complaint"].outward and not TOOLS["draft_complaint"].destructive
-    assert not any(spec.outward for spec in TOOLS.values())     # nothing can send on the user's behalf
+    # The ONLY outward tool is the SOS to the user's own opted-in trusted contact, and only the tasks node has it.
+    assert {name for name, spec in TOOLS.items() if spec.outward} == {"send_sos"}
+    with pytest.raises(ToolNotAllowed):
+        authorize("pay", "send_sos")
+    with pytest.raises(ToolNotAllowed):
+        authorize("tasks", "send_sos")          # never without a confirmation nonce
     authorize("pay", "draft_complaint")
     for tool in ("delete_own_data", "update_own_plan", "check_job_offer", "update_own_profile"):
         with pytest.raises(ToolNotAllowed):

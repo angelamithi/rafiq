@@ -35,6 +35,16 @@ def parse_update(update: dict[str, Any]) -> list[Incoming]:
     msg = Incoming(channel="telegram", external_id=str(chat["id"]), message_id=f"msg-{chat['id']}-{m.get('message_id')}")
     if "text" in m:
         msg.text = m["text"]
+    elif isinstance(m.get("location"), dict):
+        loc = m["location"]
+        try:
+            lat, lon = float(loc.get("latitude")), float(loc.get("longitude"))
+        except (TypeError, ValueError):
+            lat = lon = 999.0
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            msg.kind, msg.latitude, msg.longitude = "location", round(lat, 5), round(lon, 5)
+        else:
+            msg.kind = "unsupported"
     elif any(k in m for k in ("photo", "voice", "audio", "document", "video", "sticker")):
         kind = next(k for k in ("photo", "voice", "audio", "document", "video", "sticker") if k in m)
         msg.kind = "media"
@@ -92,6 +102,19 @@ class TelegramClient:
             pass
 
     async def send(self, chat_id: str, msg: Outgoing) -> None:
+        if msg.file:
+            body = to_payload(chat_id, msg.model_copy(update={"text": fit(msg.text, 1000)}))
+            data = {"chat_id": chat_id, "caption": body["text"], "parse_mode": "HTML"}
+            if "reply_markup" in body:
+                import json
+
+                data["reply_markup"] = json.dumps(body["reply_markup"])
+            files = {"document": (msg.filename or "document.pdf", msg.file, msg.file_mime or "application/pdf")}
+            r = await self.http.post(f"{self.base}/sendDocument", data=data, files=files)
+            if r.status_code >= 400:
+                log.error("Telegram file send failed: status=%s", r.status_code)
+                r.raise_for_status()
+            return
         r = await self.http.post(f"{self.base}/sendMessage", json=to_payload(chat_id, msg))
         if r.status_code >= 400:
             log.error("Telegram send failed: status=%s", r.status_code)

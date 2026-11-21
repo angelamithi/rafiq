@@ -76,3 +76,17 @@ def sender_for(channel: str):  # type: ignore[no-untyped-def]
         await c.send(to, out)
 
     return send
+
+
+async def relay(channel: str, to: str, out: Outgoing, template: tuple[str, list[str]] | None = None) -> None:
+    """Send to someone OTHER than the person chatting. Only used for an SOS to a
+    trusted contact who opted in. On WhatsApp an approved template is used when
+    configured, because the contact may be outside the 24-hour reply window."""
+    c = _client(channel)
+    if channel == "whatsapp" and template and template[0]:
+        from app.channels.whatsapp import send_template
+        from app.config import get_settings
+
+        await send_template(c, to, template[0], get_settings().whatsapp_template_language, template[1])
+        return
+    await c.send(to, out)

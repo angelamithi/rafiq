@@ -76,7 +76,9 @@ async def test_help_menu_from_button_and_typing(chat: Chat):
     await onboard(chat)
     for opener in (lambda: chat.tap("menu:help"), lambda: chat.say("help"), lambda: chat.say("SOS")):
         r = await opener()
-        assert "999" in r[0].text and [row.id for row in rows(r[0])] == [f"help:{k}" for k in hn.MENU]
+        expected = [f"help:{k}" for k in hn.MENU]
+        expected.insert(1, "task:sos_send")          # one-tap SOS to a trusted contact
+        assert "999" in r[0].text and [row.id for row in rows(r[0])] == expected
     r = await chat.tap("help:about")
     assert "*menu*" in r[0].text and "*delete*" in r[0].text
 

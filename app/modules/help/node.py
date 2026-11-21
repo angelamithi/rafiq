@@ -56,11 +56,15 @@ def _back(lang: str | None, *extra: Button) -> list[Button]:
 
 def help_menu(lang: str | None) -> Outgoing:
     rows = [ListRow(id=f"help:{k}", title=t(f"help_m_{k}", lang), description=t(f"help_m_{k}_d", lang)) for k in MENU]
-    return Outgoing(text=t("help_menu_text", lang), menu=ListMenu(button=t("btn_choose", lang), rows=rows))
+    rows.insert(1, ListRow(id="task:sos_send", title=t("help_m_sos", lang), description=t("help_m_sos_d", lang)))
+    return Outgoing(text=t("help_menu_text", lang), menu=ListMenu(button=t("btn_choose", lang), rows=rows[:10]))
 
 
 def unsafe_message(lang: str | None) -> Outgoing:
-    return Outgoing(text=t("help_unsafe", lang), buttons=_back(lang, Button(id="help:embassy", title=t("btn_my_embassy", lang))))
+    return Outgoing(text=t("help_unsafe", lang) + "\n\n" + t("help_unsafe_sos", lang),
+                    buttons=[Button(id="task:sos_send", title=t("btn_sos_send", lang)),
+                             Button(id="help:embassy", title=t("btn_my_embassy", lang)),
+                             Button(id="menu:main", title=t("btn_menu", lang))])
 
 
 def embassy_message(user, lang: str | None) -> Outgoing:  # type: ignore[no-untyped-def]

@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -59,6 +59,10 @@ class User(Base):
     )
     # Module 7: wellbeing check-in preference (answers are never stored).
     social: Mapped["SocialPrefs | None"] = relationship(
+        back_populates="user", uselist=False, lazy="selectin", cascade="all, delete-orphan", passive_deletes=True,
+    )
+    # "Do it for me": details the user gave for tasks (employer, salary, trusted contact, rate alert).
+    toolkit: Mapped["Toolkit | None"] = relationship(
         back_populates="user", uselist=False, lazy="selectin", cascade="all, delete-orphan", passive_deletes=True,
     )
     # Module 5: one optional arrival checklist per user.
@@ -121,6 +125,41 @@ class SocialPrefs(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     user: Mapped[User] = relationship(back_populates="social")
+
+
+class Toolkit(Base):
+    """"Do it for me" tasks. Everything personal is in one encrypted JSON blob
+    (employer, salary, job start, trusted contact, rate alert, a form being
+    filled). Two plain columns exist only so background jobs can find rows:
+    `contact_hash` (keyed hash of the trusted contact, so they can remove
+    themselves) and `rate_on` (an exchange-rate alert is waiting)."""
+
+    __tablename__ = "toolkits"
+
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    data_enc: Mapped[str | None] = mapped_column(Text)
+    contact_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    rate_on: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped[User] = relationship(back_populates="toolkit")
+
+
+class VaultDoc(Base):
+    """Document vault: the user's own copies of their passport, visa, Emirates ID,
+    contract... The file and its expiry date are encrypted. Not loaded with the
+    user (files can be large): queried only when the vault is opened."""
+
+    __tablename__ = "vault_docs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))                 # passport | visa | eid | contract | offer | other
+    expiry_enc: Mapped[str | None] = mapped_column(Text)          # ISO date, encrypted
+    file_enc: Mapped[bytes] = mapped_column(LargeBinary)          # Fernet-encrypted file bytes
+    mime: Mapped[str] = mapped_column(String(40))
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class SourceCheck(Base):

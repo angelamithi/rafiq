@@ -18,7 +18,7 @@ os.environ.update(
     TELEGRAM_ENABLED="true",
     TELEGRAM_WEBHOOK_SECRET="test-telegram-secret",
     USE_QUEUE="false",
-    PRIVACY_POLICY_VERSION="2026-11-20.1",
+    PRIVACY_POLICY_VERSION="2026-11-21.1",
 )
 
 from app.channels.base import Incoming, Outgoing  # noqa: E402
@@ -51,6 +51,11 @@ class Chat:
         self.media_loader = None    # fake media download for tests
         self.doc_model = None       # fake Gemini for reading photos/scans; None = no AI
         self.intent_model = None    # fake Gemini for understanding unclear messages; None = rules only
+        self.fx_fetcher = None      # fake exchange-rate source
+        self.relayed: list[tuple[str, str, Outgoing, object]] = []   # messages to a trusted contact
+
+    async def _relay(self, channel: str, to: str, out: Outgoing, template=None) -> None:
+        self.relayed.append((channel, to, out, template))
 
     async def _send(self, to: str, out: Outgoing) -> None:
         assert to == self.phone, "a reply was addressed to someone else"
@@ -60,8 +65,10 @@ class Chat:
         Chat._counter += 1
         msg = Incoming(channel=self.channel, external_id=self.phone, message_id=f"m{Chat._counter}", **kw)
         return await process_message(msg, kv=self.kv, send=self._send, today=TODAY,
+                                     relay=self._relay,
                                      agent_context={"extractor": self.extractor, "media_loader": self.media_loader,
-                                                    "doc_model": self.doc_model, "intent_model": self.intent_model})
+                                                    "doc_model": self.doc_model, "intent_model": self.intent_model,
+                                                    "fx_fetcher": self.fx_fetcher})
 
     async def say(self, text: str) -> list[Outgoing]:
         return await self._go(text=text)
@@ -71,6 +78,9 @@ class Chat:
 
     async def media(self, media_type: str = "image", media_id: str = "media-1") -> list[Outgoing]:
         return await self._go(kind="media", media_type=media_type, media_id=media_id)
+
+    async def location(self, lat: float, lon: float) -> list[Outgoing]:
+        return await self._go(kind="location", latitude=lat, longitude=lon)
 
     @staticmethod
     def text_of(replies: list[Outgoing]) -> str:

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import re
 
-from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, User, utcnow
+from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, VaultDoc, utcnow
 from app.security.crypto import decrypt, encrypt, hash_identity
 
 EDITABLE_FIELDS = {"display_name", "journey_stage", "home_country", "visa_type", "visa_expiry", "sector", "language"}
@@ -29,6 +29,7 @@ async def get_or_create_user(s: AsyncSession, channel: str, external_id: str) ->
     user.arrival = None
     user.pay = None
     user.social = None
+    user.toolkit = None
     s.add(user)
     await s.flush()
     return user, True
@@ -154,6 +155,36 @@ def set_social_checkin(u: User, on: bool) -> None:
     u.social.checkin = 1 if on else 0
 
 
+# ---------------------------------------------------------------- "Do it for me" toolkit
+
+def toolkit(u: User) -> dict:
+    raw = decrypt(u.toolkit.data_enc) if u.toolkit else None
+    try:
+        data = json.loads(raw) if raw else {}
+    except ValueError:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_toolkit(u: User, data: dict, *, contact_hash: str | None | bool = False, rate_on: bool | None = None) -> None:
+    """contact_hash=False leaves it unchanged; None clears it."""
+    if u.toolkit is None:
+        u.toolkit = Toolkit(rate_on=0)
+    clean = {k: v for k, v in data.items() if v not in (None, "", {}, [])}
+    u.toolkit.data_enc = encrypt(json.dumps(clean)) if clean else None
+    if contact_hash is not False:
+        u.toolkit.contact_hash = contact_hash  # type: ignore[assignment]
+    if rate_on is not None:
+        u.toolkit.rate_on = 1 if rate_on else 0
+
+
+def update_toolkit(u: User, **changes: object) -> dict:
+    data = toolkit(u)
+    data.update(changes)
+    save_toolkit(u, data)
+    return data
+
+
 def export_data(u: User) -> dict[str, str | None]:
     expiry = get_visa_expiry(u)
     travel = get_travel_date(u)
@@ -175,6 +206,19 @@ def export_data(u: User) -> dict[str, str | None]:
         "salary_watch": ("on" if pay_watch_on(u) else "off") if u.pay else None,
         "wellbeing_checkins": ("on" if social_checkin_on(u) else "off") if u.social else None,
         "salary_record": ", ".join(f"{m}: {st}" for m, st in sorted(pay_log(u).items())) or None,
+        **_toolkit_export(u),
+    }
+
+
+def _toolkit_export(u: User) -> dict[str, str | None]:
+    d = toolkit(u)
+    rate = d.get("rate") or {}
+    return {
+        "employer": d.get("employer"),
+        "monthly_salary": f"AED {d['salary']}" if d.get("salary") else None,
+        "job_start": d.get("job_start"),
+        "trusted_contact": f"{d.get('contact_name')} ({d.get('contact_channel')})" if d.get("contact_address") else None,
+        "rate_alert": f"1 AED >= {rate.get('target')} {rate.get('cur')}" if rate.get("target") else None,
     }
 
 
@@ -184,6 +228,8 @@ async def delete_user(s: AsyncSession, u: User) -> None:
     await s.execute(delete(ArrivalPlan).where(ArrivalPlan.user_id == uid))
     await s.execute(delete(PayRecord).where(PayRecord.user_id == uid))
     await s.execute(delete(SocialPrefs).where(SocialPrefs.user_id == uid))
+    await s.execute(delete(Toolkit).where(Toolkit.user_id == uid))
+    await s.execute(delete(VaultDoc).where(VaultDoc.user_id == uid))
     await s.execute(delete(User).where(User.id == uid))
     # Keep a minimal, anonymous record that a deletion happened (no personal data).
     s.add(AuditLog(user_ref=uid, event="data_deleted", detail="user requested deletion"))
