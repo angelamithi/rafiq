@@ -146,3 +146,12 @@ def test_every_screen_fits_whatsapp_limits(lang):
 
 def test_every_string_has_english():
     assert all("en" in v for v in S.values())
+
+
+def test_telegram_renders_bold_safely():
+    from app.channels.base import Outgoing
+    from app.channels.telegram import to_payload
+
+    body = to_payload("1", Outgoing(text="⛔ *You can't work* on a <visit> visa & see https://u.ae/a_b_c"))
+    assert body["parse_mode"] == "HTML"
+    assert body["text"] == "⛔ <b>You can't work</b> on a &lt;visit&gt; visa &amp; see https://u.ae/a_b_c"

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -50,8 +52,18 @@ def parse_update(update: dict[str, Any]) -> list[Incoming]:
     return [msg]
 
 
+_BOLD = re.compile(r"\*([^*\n]{1,300}?)\*")
+
+
+def to_telegram_html(text: str) -> str:
+    """Rafiq writes WhatsApp-style *bold*. Telegram needs HTML: escape everything,
+    then turn *bold* into <b>bold</b>. Nothing else is interpreted."""
+    return _BOLD.sub(r"<b>\1</b>", html.escape(text, quote=False))
+
+
 def to_payload(chat_id: str, msg: Outgoing) -> dict[str, Any]:
-    body: dict[str, Any] = {"chat_id": chat_id, "text": fit(msg.text, 4096), "disable_web_page_preview": True}
+    body: dict[str, Any] = {"chat_id": chat_id, "text": to_telegram_html(fit(msg.text, 3900)),
+                            "parse_mode": "HTML", "disable_web_page_preview": True}
     keyboard: list[list[dict[str, str]]] = []
     if msg.buttons:
         keyboard = [[{"text": b.title, "callback_data": b.id[:64]} for b in msg.buttons[:3]]]

@@ -175,7 +175,7 @@ async def test_check_scam_offer_end_to_end(chat: Chat):
     r = await chat.say(SCAM)
     rep = r[0].text
     assert "High risk" in rep
-    assert "They ask you to pay fees" in rep and "Working on a visit visa" in rep
+    assert "They ask you to pay fees" in rep and "Offer says to come on a visit visa" in rep
     assert "Don't pay any money" in rep
     assert "https://neaims.go.ke/EmploymentAgencyList.aspx" in rep      # Kenya-specific agency check
     assert "https://www.mohre.gov.ae" in rep
@@ -331,3 +331,25 @@ def test_job_screens_fit_whatsapp_limits():
         if s.buttons:
             assert len(s.buttons) <= 3 and all(len(b.title) <= 20 for b in s.buttons) and len(s.text) <= 1024
         whatsapp.to_payload("254700000001", s)
+
+
+@pytest.mark.parametrize("text,is_offer", [
+    ("Hotel job in Dubai, salary AED 3000, pay KES 50,000 visa fee, come on visit visa, send your passport", True),
+    ("Driver needed in Abu Dhabi, salary 2500 AED, accommodation provided, send CV", True),
+    ("My agent says to come on a visit visa and the employer will change it later", True),
+    ("Can I work on a visit visa?", False),
+    ("how much salary should a hotel job in Dubai pay per month in AED?", False),
+    ("I want to renew my visa next month, what documents do I need for the employer", False),
+    ("my employer has not paid my salary for two months what can I do", False),
+])
+def test_short_forwarded_offers_are_recognised(text, is_offer):
+    from app.modules.job_safety.rules import looks_like_offer
+
+    assert looks_like_offer(text) is is_offer
+
+
+async def test_short_offer_gets_the_job_check_not_the_visa_answer(chat):
+    await onboard(chat)
+    r = await chat.say("Hotel job in Dubai, salary AED 3000, pay KES 50,000 visa fee, come on visit visa, send your passport")
+    text = chat.text_of(r)
+    assert "Offer says to come on a visit visa" in text and "They ask you to pay fees" in text

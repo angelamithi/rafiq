@@ -261,7 +261,7 @@ async def test_photo_of_scam_offer_gets_full_report(chat: Chat):
     await chat.tap("menu:job")
     r = await chat.media("image")
     assert r[0].text.startswith("📄 I read your photo") and "High risk" in r[0].text
-    assert "They ask you to pay fees" in r[0].text and "Working on a visit visa" in r[0].text
+    assert "They ask you to pay fees" in r[0].text and "Offer says to come on a visit visa" in r[0].text
 
 
 async def test_pdf_offer_works_without_ai(chat: Chat):

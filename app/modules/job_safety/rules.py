@@ -112,8 +112,8 @@ def _flag_visit_visa(sentences: list[str]) -> Flag | None:
     for s in sentences:
         if (_VISIT_VISA.search(s) and _WORK_WORDS.search(s) and not _VISIT_NEGATION.search(s)) or _VISA_LATER.search(s):
             return Flag(
-                "visit_visa", HIGH, "Working on a visit visa",
-                "Working on a visit or tourist visa is illegal in the UAE. You can be fined, jailed or deported. You need an employment visa before you start work.",
+                "visit_visa", HIGH, "Offer says to come on a visit visa",
+                "This offer asks you to travel or work on a visit or tourist visa. Working on one is illegal in the UAE: you can be fined, jailed or deported. A real employer gets you an employment visa before you start work.",
                 MOHRE,
             )
     return None
@@ -167,8 +167,17 @@ _OFFER_WORDS = re.compile(r"\b(salary|aed|dhs|dirhams?|visa|vacanc(y|ies)|positi
 
 
 def looks_like_offer(text: str) -> bool:
-    """A pasted/forwarded job offer: long enough and several job words."""
+    """A pasted/forwarded job offer (not a question about the rules).
+
+    Long messages need 3+ job words. Short forwarded offers ("Hotel job in
+    Dubai, salary AED 3000, pay KES 50,000 visa fee...") count when they have
+    2+ job words AND a money amount or a serious (high) red flag."""
     t = _norm(text)
-    if len(t) < 120:
+    if len(t) < 50:
         return False
-    return len({m.group(0) for m in _OFFER_WORDS.finditer(t)}) >= 3
+    words = len({m.group(0) for m in _OFFER_WORDS.finditer(t)})
+    if len(t) >= 120 and words >= 3:
+        return True
+    if words < 2 or t.rstrip().endswith("?"):
+        return False
+    return bool(_MONEY.search(t)) or any(f.severity == HIGH for f in check_offer(text).flags)
