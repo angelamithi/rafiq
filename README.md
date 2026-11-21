@@ -211,18 +211,26 @@ python3 -m pytest -q           # 251 tests
 
 ## Deploy on the VPS
 
-1. Install Docker and the Compose plugin. Point your domain's DNS A record at the VPS.
-2. Copy this folder to the server, then:
+Tested target: Ubuntu 22.04/24.04, 2 GB RAM or more.
+
+1. **DNS:** create an A record (e.g. `rafiq.yourdomain.com`) pointing at the VPS IP.
+2. **Server:** install Docker (`curl -fsSL https://get.docker.com | sh`), open the firewall (`ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable`).
+3. **Code and secrets:**
    ```bash
+   unzip rafiq-latest.zip && cd rafiq
    cp .env.example .env && chmod 600 .env
-   python3 scripts/generate_secrets.py     # paste the output into .env
-   nano .env                               # set DOMAIN, PUBLIC_BASE_URL, bot tokens
-   docker compose up -d --build
+   docker compose build
+   docker compose run --rm --no-deps web python scripts/generate_secrets.py   # paste the output into .env
+   nano .env      # DOMAIN, PUBLIC_BASE_URL, TELEGRAM_BOT_TOKEN, GOOGLE_API_KEY (+ WhatsApp values later)
+   docker compose up -d
+   curl https://<DOMAIN>/health                  # {"status":"ok"}
    ```
-3. **Telegram (test channel):** create a bot with @BotFather, put the token in `.env`, set `TELEGRAM_ENABLED=true`, then
-   `docker compose exec web python scripts/set_telegram_webhook.py`.
-4. **WhatsApp:** in the Meta developer dashboard, set the webhook URL to `https://<DOMAIN>/webhook/whatsapp` with your `WHATSAPP_VERIFY_TOKEN`, subscribe to `messages`, and fill in the four `WHATSAPP_*` values. Set `WHATSAPP_ENABLED=true` and restart: `docker compose up -d`.
-5. Back up `FIELD_ENCRYPTION_KEY` and `ID_HASH_PEPPER` somewhere safe. Without them, saved data can't be read.
+4. **Telegram (test channel):** create a bot with @BotFather, put the token in `.env`, `docker compose up -d`, then
+   `docker compose exec worker python scripts/set_telegram_webhook.py` (the worker, not web: web has no internet access by design).
+5. **WhatsApp:** in the Meta developer dashboard, set the webhook URL to `https://<DOMAIN>/webhook/whatsapp` with your `WHATSAPP_VERIFY_TOKEN`, subscribe to `messages`, fill in the `WHATSAPP_*` values, set `WHATSAPP_ENABLED=true`, then `docker compose up -d`.
+6. **Rule Monitor baseline:** `docker compose exec worker python scripts/rule_monitor.py check`.
+7. **Logs:** `docker compose logs -f web worker`.
+8. Back up `.env` (especially `FIELD_ENCRYPTION_KEY` and `ID_HASH_PEPPER`) somewhere safe. Without them, saved data can't be read.
 
 **Moving to a Dubai server later:** copy the folder and `.env`, restore a `pg_dump` of the database, update DNS and the Meta webhook URL.
 
