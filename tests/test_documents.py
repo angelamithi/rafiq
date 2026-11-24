@@ -342,4 +342,4 @@ async def test_file_contents_never_stored(chat: Chat):
 async def test_privacy_notice_mentions_photos_and_gemini(chat: Chat):
     await chat.say("hi")
     r = await chat.tap("consent:more")
-    assert "photos, PDFs and voice notes go as they are" in r[0].text and "Google Gemini" in r[0].text and "cover your passport or ID number" in r[0].text
+    assert "photos, PDFs and voice notes go as they are" in r[0].text and "Google Gemini" in r[0].text and "cover ID numbers" in r[0].text

@@ -18,6 +18,15 @@
 		reverse_proxy web:8000
 	}
 
+	# Judges' demo (only answers when DEMO_ENABLED=true; needs the demo code). Bigger limit for photo/PDF uploads.
+	@demo path /demo /demo/api/*
+	handle @demo {
+		request_body {
+			max_size 5MB
+		}
+		reverse_proxy web:8000
+	}
+
 	handle {
 		respond 404
 	}

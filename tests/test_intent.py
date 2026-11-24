@@ -69,7 +69,8 @@ def test_no_dangerous_actions_are_reachable():
     commands = {i.command for i in it.INTENTS.values()}
     assert not commands & {"delete", "export", "profile", "privacy", "start", "stop", "sos", "sos_leave", "sos_join"}
     assert {i.route for i in it.INTENTS.values()} <= {"job_safety", "stay_legal", "departure", "arrival", "pay",
-                                                      "social", "money", "help", "tasks"}
+                                                      "social", "money", "help", "tasks", "cases", "life", "growth",
+                                                      "housing", "health", "career", "services", "renewals"}
 
 
 # ------------------------------------------------------------------ attacks & safety

@@ -14,13 +14,20 @@ _clients: dict[str, object] = {}
 
 def _client(channel: str):  # type: ignore[no-untyped-def]
     if channel not in _clients:
-        _clients[channel] = WhatsAppClient() if channel == "whatsapp" else TelegramClient()
+        if channel == "web":
+            from app.channels.web import WebClient
+
+            _clients[channel] = WebClient()
+        else:
+            _clients[channel] = WhatsAppClient() if channel == "whatsapp" else TelegramClient()
     return _clients[channel]
 
 
 async def acknowledge(msg: Incoming) -> None:
     """Show 'read' + typing so the user knows Rafiq is working on it."""
     c = _client(msg.channel)
+    if msg.channel == "web":
+        return
     if msg.channel == "whatsapp":
         await c.mark_read_and_typing(msg.message_id)
     else:

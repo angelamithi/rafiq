@@ -39,6 +39,7 @@ FORMS: dict[str, Form] = {
                                         Field("purpose", "form_q_purpose"))),
     "resign": Form("resign", (_EMPLOYER, _TO, _JOB, Field("last_day", "form_q_last_day", "date")), tip="form_tip_resign"),
     "payslip": Form("payslip", (_EMPLOYER, _TO, Field("months", "form_q_months"))),
+    "insurance": Form("insurance", (_EMPLOYER, _TO)),
 }
 
 
@@ -67,6 +68,12 @@ def _body(key: str, a: dict[str, str], name: str) -> tuple[str, list[str]]:
             f"My last working day will be {a['last_day']}, in line with the notice period in my contract.",
             "I ask for my final settlement, including any unpaid salary, unused leave and end-of-service gratuity, "
             "to be paid as required by UAE law, and for the cancellation of my work permit and visa to be processed.",
+        ]
+    if key == "insurance":
+        return "Request for my health insurance card", [
+            "Please provide me with my health insurance card or policy details. Health insurance for employees is required "
+            "by UAE law and paid by the employer, and I need it to see a doctor.",
+            "Thank you for arranging this within 5 working days.",
         ]
     return "Request for payslips", [
         f"Please provide me with my payslips (or salary statements) for {a['months']}. "

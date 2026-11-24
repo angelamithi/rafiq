@@ -123,6 +123,13 @@ async def fetch_media(channel: str, media_id: str, http: httpx.AsyncClient | Non
             return await fetch_whatsapp(media_id, http)
         if channel == "telegram":
             return await fetch_telegram(media_id, http)
+        if channel == "web":
+            from app.channels.web import load_media
+
+            data = await load_media(media_id)
+            if not data:
+                raise MediaError("download_failed")
+            return Media(data=data, declared_mime=None)
         raise MediaError("download_failed")
     finally:
         if own:

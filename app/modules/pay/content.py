@@ -36,7 +36,9 @@ GRATUITY_MAX_YEARS = 50
 STRINGS: dict[str, dict[str, str]] = {
     # ------------------------------------------------------------------ menu
     "menu_pay": {"en": "Pay & rights"},
-    "menu_pay_d": {"en": "Salary watch, late pay, complaints, gratuity"},
+    "menu_pay_d": {"en": "Short salary? Wage check, overtime, complaints"},
+    "pay_m_wc": {"en": "Wage check"},
+    "pay_m_wc_d": {"en": "Paid less than agreed? Work out what's owed"},
     "pay_menu": {"en": "💵 *Pay & rights*\nWhat do you need?"},
     "pay_m_watch": {"en": "Salary watch"},
     "pay_m_watch_d": {"en": "A monthly check that your salary arrived"},
@@ -46,6 +48,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "pay_m_complaint_d": {"en": "A ready-to-send draft for MOHRE"},
     "pay_m_rights": {"en": "Hours, leave & days off"},
     "pay_m_rights_d": {"en": "Overtime, rest days, annual and sick leave"},
+    "pay_m_ot": {"en": "Overtime calculator"},
+    "pay_m_ot_d": {"en": "What extra hours should pay, at least"},
     "pay_m_gratuity": {"en": "End-of-service pay"},
     "pay_m_gratuity_d": {"en": "Gratuity rules and a quick calculator"},
     "pay_m_proof": {"en": "Keep proof"},

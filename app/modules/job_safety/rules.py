@@ -181,3 +181,18 @@ def looks_like_offer(text: str) -> bool:
     if words < 2 or t.rstrip().endswith("?"):
         return False
     return bool(_MONEY.search(t)) or any(f.severity == HIGH for f in check_offer(text).flags)
+
+
+_VAGUE_JOB = re.compile(r"\b(job|jobs|work|vacanc\w*|position|opening|hiring|visa)\b", re.I)
+_VAGUE_WHERE = re.compile(r"\b(dubai|uae|abu\s*dhabi|sharjah|emirates|gulf|abroad|overseas)\b", re.I)
+_VAGUE_ACT = re.compile(r"\b(send|share|submit)\s+(your\s+|my\s+|the\s+)?(cv|resume|passport|documents?|details)\b|\bapply\b"
+                        r"|\b(offer|offered|recruit\w*|agent)\b", re.I)
+
+
+def vague_offer(text: str) -> bool:
+    """A short forwarded job ad with too little to check ("Job in Dubai, send CV").
+    The right move is to ask for the whole offer, not to guess a verdict."""
+    t = (text or "").strip()
+    if len(t) >= 50 or t.endswith("?") or looks_like_offer(t):
+        return False
+    return bool(_VAGUE_JOB.search(t) and _VAGUE_WHERE.search(t) and _VAGUE_ACT.search(t))

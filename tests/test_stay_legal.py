@@ -186,7 +186,7 @@ def test_template_payload_shape():
 async def test_menu_has_stay_legal_second(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert chat.ids_of(r)[1:3] == ["menu:job", "menu:legal"]
+    assert chat.ids_of(r)[1] == "menu:job" and chat.ids_of(r)[3] == "menu:legal"
     r = await chat.tap("menu:legal")
     assert chat.ids_of(r) == ["legal:visa", "legal:work", "legal:med", "legal:post", "legal:rules"]
 

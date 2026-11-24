@@ -109,6 +109,10 @@ async def job_safety(state: AgentState, config: RunnableConfig) -> dict[str, Any
         user.step = AWAITING
         return _out(state, report.intro_message(lang))
 
+    if cmd == "offer_vague":
+        user.step = AWAITING
+        return _out(state, Outgoing(text=t("job_vague", lang)), events=_events(state, ("offer_too_short", "")))
+
     if bid == "job:agency" or cmd == "agency":
         user.step = "ready"
         return _out(state, report.agency_message(user.home_country, lang))

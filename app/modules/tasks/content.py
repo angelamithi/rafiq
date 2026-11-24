@@ -39,6 +39,10 @@ STRINGS: dict[str, dict[str, str]] = {
     )},
     "task_m_pack": {"en": "Unpaid wages pack"},
     "task_m_pack_d": {"en": "A PDF of what you're owed, ready for MOHRE"},
+    "task_m_brief": {"en": "Life Manager"},
+    "task_m_brief_d": {"en": "What needs your attention now, in order"},
+    "task_m_cases": {"en": "My cases"},
+    "task_m_cases_d": {"en": "Track a complaint from evidence to outcome"},
     "task_m_vault": {"en": "My documents"},
     "task_m_vault_d": {"en": "Safe copies of passport, visa, ID + expiry alerts"},
     "task_m_sos": {"en": "Trusted contact (SOS)"},
@@ -95,7 +99,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "✅ *Your unpaid wages pack is ready.*\n"
         "• Months not paid: {unpaid}\n"
         "• Months part-paid: {part}\n"
-        "• Owed (unpaid months): about *AED {owed}*\n"
+        "• Owed: about *AED {owed}*\n"
         "• End-of-service estimate: {gratuity}\n\n"
         "Take it to MOHRE (call *80084* or use the MOHRE app), a lawyer or your embassy. "
         "Keep your payslips and bank statements with it. "
@@ -245,14 +249,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "• Call or message them now.\n"
         "• If you can't reach them and you're in the UAE, call police on *999*.\n"
         "• From abroad, contact their country's embassy in the UAE{embassy}.\n"
-        "• Dubai Police Human Trafficking crimes control centre: *800 7283*."
+        "• Human trafficking hotline (800 SAVE): *800 7283*."
     )},
     "sos_where": {"en": "\n📍 Location: https://maps.google.com/?q={lat},{lon}"},
     "sos_where_none": {"en": "\n(No location was shared.)"},
     "sos_embassy": {"en": ": {url}"},
     "sos_sent": {"en": (
         "✅ SOS sent to *{name}*. If you're in immediate danger, call *999* now.\n"
-        "Need a safe place or help leaving? Call *800 7283* (Dubai Police, human trafficking and abuse)."
+        "Need a safe place or help leaving? Call *800 7283* (800 SAVE, the human trafficking hotline) or *800 111* (Dubai Foundation for Women and Children)."
     )},
     "sos_limit": {"en": "You've sent {n} SOS alerts in the last hour. If you're in danger, call *999* now."},
     "sos_relay_failed": {"en": "⚠️ I couldn't reach your contact just now. If you're in danger, call *999*."},
@@ -294,6 +298,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "form_salary_cert_d": {"en": "For a bank, rent or embassy"},
     "form_resign": {"en": "Resignation notice"},
     "form_resign_d": {"en": "Give notice the legal way"},
+    "form_insurance": {"en": "Health insurance card"},
+    "form_insurance_d": {"en": "Ask your employer for your card"},
     "form_payslip": {"en": "Ask for payslips"},
     "form_payslip_d": {"en": "Proof of what you've been paid"},
     "form_q_employer": {"en": "What is your employer's company name?"},
@@ -336,6 +342,13 @@ STRINGS: dict[str, dict[str, str]] = {
     "contract_head": {"en": "🔍 *Offer vs contract*"},
     "contract_row": {"en": "• {label}: offer *{offer}* → contract *{contract}* {mark}"},
     "contract_lbl_salary": {"en": "Salary (AED/month)"},
+    "contract_lbl_salary_basic": {"en": "Basic salary (AED/month)"},
+    "contract_lbl_salary_total": {"en": "Total salary (AED/month)"},
+    "contract_lbl_salary_basic_only": {"en": "Salary in writing (contract: basic only)"},
+    "contract_salary_basic_only": {"en": (
+        "ℹ️ The contract lists only a *basic* salary, with no allowances, so that is all the pay it promises in writing. "
+        "If housing, food or other allowances were promised, ask for them in the contract before you sign.")},
+    "contract_arabic_job": {"en": "❔ The job titles are in different languages, so check that they mean the same job."},
     "contract_lbl_job": {"en": "Job title"},
     "contract_lbl_hours": {"en": "Hours per day"},
     "contract_lbl_leave": {"en": "Annual leave (days)"},

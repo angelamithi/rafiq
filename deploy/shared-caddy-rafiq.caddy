@@ -1,6 +1,6 @@
 # Add this block to the SHARED Caddyfile (the one used by the shared_caddy
 # container), then reload:  docker exec shared_caddy caddy reload --config /etc/caddy/Caddyfile
-# Same protections as Rafiq's own Caddyfile: only the webhooks and /health are public.
+# Same protections as Rafiq's own Caddyfile: only the webhooks, /health and the judges' demo are public.
 
 rafiq.afrivance.ai {
 	encode gzip
@@ -17,6 +17,15 @@ rafiq.afrivance.ai {
 	handle @public {
 		request_body {
 			max_size 512KB
+		}
+		reverse_proxy rafiq-web:8000
+	}
+
+	# Judges' demo (only answers when DEMO_ENABLED=true; needs the demo code). Bigger limit for photo/PDF uploads.
+	@demo path /demo /demo/api/*
+	handle @demo {
+		request_body {
+			max_size 5MB
 		}
 		reverse_proxy rafiq-web:8000
 	}

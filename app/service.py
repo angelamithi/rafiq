@@ -21,9 +21,10 @@ from typing import Any
 
 from app.agent.graph import build_graph
 from app.knowledge.monitor import modules_under_review
+from app.media import translate as tr
 from app.media.voice import voice_to_text
 from app.agent.state import AgentState
-from app.channels.base import Incoming, Outgoing
+from app.channels.base import Button, Incoming, ListMenu, ListRow, Outgoing
 from app.config import Settings, get_settings
 from app.db import repo
 from app.db.session import sessionmaker
@@ -53,6 +54,9 @@ def _own_values(user: Any) -> set[str]:
     for key in ("employer", "contact_name"):
         if isinstance(kit.get(key), str) and len(kit[key]) >= 2:
             vals.add(kit[key])
+    vals |= {r for r in kit.get("case_refs") or [] if isinstance(r, str)}
+    rn = kit.get("renewals") if isinstance(kit.get("renewals"), dict) else {}
+    vals |= {e["ref"] for e in rn.values() if isinstance(e, dict) and isinstance(e.get("ref"), str)}   # application numbers
     return vals
 
 
@@ -70,8 +74,76 @@ def guard_replies(replies: list[Outgoing], own: set[str], lang: str | None) -> t
     return safe, reasons
 
 
+def _translate_model(agent_context: dict[str, Any] | None) -> Any:
+    model = (agent_context or {}).get("translate_model", "default")
+    if model == "default":
+        from app.agent.llm import get_main_model
+
+        model = get_main_model()
+    return model
+
+
+async def _translate_allowed(kv: KV, ident: str, settings: Settings, today: date | None) -> bool:
+    key = f"tr:{ident}:{(today or date.today()).isoformat()}"
+    count = await kv.incr(key)
+    if count == 1:
+        await kv.expire(key, 90_000)
+    return count <= settings.translate_per_day
+
+
+async def localize(replies: list[Outgoing], lang: str, *, model: Any, settings: Settings, own: set[str],
+                   note: bool) -> list[Outgoing]:
+    """Translate already-guarded English replies into `lang`. Any message whose translation fails a check
+    stays in English. Files are never translated (only their captions)."""
+    replies = [r if tr.sendable(r.text) else r.model_copy(update={"keep_english": True}) for r in replies]
+    todo = [r for r in replies if not r.keep_english]
+    if not todo:
+        return replies
+    items: list[str] = []
+    for r in todo:
+        items.append(r.text)
+        items += [b.title for b in r.buttons]
+        if r.menu:
+            items.append(r.menu.button)
+            for row in r.menu.rows:
+                items += [row.title, row.description or ""]
+    if note:
+        items.append(t("tr_note", None))
+    out = await tr.from_english(items, lang, model, float(settings.translate_timeout_seconds))
+    if out is None:
+        return replies
+    it = iter(out)
+    result: list[Outgoing] = []
+    for r in replies:
+        if r.keep_english:
+            result.append(r)
+            continue
+        text = next(it)
+        buttons = [Button(id=b.id, title=(next(it) or b.title)[:20]) for b in r.buttons]
+        menu = None
+        if r.menu:
+            label = (next(it) or r.menu.button)[:20]
+            rows = []
+            for row in r.menu.rows:
+                title, desc = next(it), next(it)
+                rows.append(ListRow(id=row.id, title=(title or row.title)[:24],
+                                    description=(desc[:72] if row.description else None)))
+            menu = ListMenu(button=label, rows=rows, section_title=r.menu.section_title)
+        chk = check_output(text, user_own_values=own)          # the guard runs again on the translation
+        if chk.blocked or chk.text != text:
+            result.append(r)
+            continue
+        result.append(r.model_copy(update={"text": text, "buttons": buttons, "menu": menu}))
+    if note and result:
+        last = next(it, "")
+        idx = max(i for i, r in enumerate(result))
+        if last and not result[idx].file:
+            result[idx] = result[idx].model_copy(update={"text": result[idx].text + "\n\n" + last})
+    return result
+
+
 async def _voice_note(msg: Incoming, user: Any, session: Any, *, kv: KV, ident: str, settings: Settings,
-                      today: date | None, agent_context: dict[str, Any] | None) -> str | Outgoing:
+                      today: date | None, agent_context: dict[str, Any] | None) -> tuple[str, str | None] | Outgoing:
     """Returns the transcript, or a reply explaining why the voice note can't be used."""
     lang = user.language
     if not settings.voice_enabled:
@@ -93,7 +165,7 @@ async def _voice_note(msg: Incoming, user: Any, session: Any, *, kv: KV, ident: 
         await repo.audit(session, user.id, "voice_failed", res.error or "empty")
         return Outgoing(text=t(f"voice_err_{res.error or 'no_speech'}", lang))
     await repo.audit(session, user.id, "voice_transcribed")       # never the words themselves
-    return res.text
+    return res.text, res.lang
 
 
 async def process_message(
@@ -141,15 +213,44 @@ async def process_message(
         # 3b. Voice note -> English text (any spoken language). From here on it is
         #     treated EXACTLY like a typed message: same scan, checks and routing.
         heard: Outgoing | None = None
+        detected_lang: str | None = None
         if msg.kind == "media" and msg.media_type in ("audio", "voice"):
             voice = await _voice_note(msg, user, session, kv=kv, ident=ident, settings=settings,
                                       today=today, agent_context=agent_context)
             if isinstance(voice, Outgoing):
                 await session.commit()
                 return await deliver([voice])
-            text = clean_input(voice)
+            voice_text, spoken = voice
+            text = clean_input(voice_text)
             msg = msg.model_copy(update={"kind": "text", "text": text, "media_type": None, "media_id": None})
-            heard = Outgoing(text=t("voice_heard", lang, text=text if len(text) <= 300 else text[:297] + "…"))
+            heard = Outgoing(text=t("voice_heard", lang, text=text if len(text) <= 300 else text[:297] + "…"), keep_english=True)
+            if spoken:
+                detected_lang = spoken if spoken in tr.LANGUAGES else "en"
+
+        # 3c. Language: reply in the language she used. "Reply in Swahili" / "English" switch it;
+        #     a typed message that isn't English is translated to English first (rules work in English).
+        if msg.kind == "text" and text and user.consent_status == "granted" and user.step == "ready" and not heard:
+            if (wanted := tr.switch_request(text)) is not None:
+                repo.update_toolkit(user, reply_lang=None if wanted == "en" else wanted)
+                await repo.audit(session, user.id, "reply_language", wanted)
+                await session.commit()
+                done = [Outgoing(text=t("tr_switched", lang, language=tr.LANGUAGES.get(wanted, "English")))]
+                if wanted != "en" and settings.translate_enabled:
+                    done = await localize(done, wanted, model=_translate_model(agent_context), settings=settings,
+                                          own=_own_values(user), note=False)
+                return await deliver(done)
+            if settings.translate_enabled and tr.looks_foreign(text) and await _translate_allowed(kv, ident, settings, today):
+                res = await tr.to_english(text, _translate_model(agent_context), float(settings.translate_timeout_seconds))
+                if res:
+                    english, code = res
+                    text = clean_input(english)
+                    msg = msg.model_copy(update={"text": text})
+                    detected_lang = code if code in tr.LANGUAGES else None
+                    heard = Outgoing(text=t("tr_understood", lang, text=text if len(text) <= 300 else text[:297] + "…"),
+                                     keep_english=True)
+                    await repo.audit(session, user.id, "translated_in", code[:8])
+            elif len(text.split()) >= 3 and not tr.looks_foreign(text):
+                detected_lang = "en"
 
         if len(text) > settings.max_message_chars:
             await session.commit()
@@ -212,6 +313,21 @@ async def process_message(
         replies, reasons = guard_replies([*([heard] if heard else []), *result.get("replies", [])], _own_values(user), lang)
         if reasons:
             await repo.audit(session, user.id, "output_guard", ",".join(sorted(set(reasons)))[:255])
+
+        # 6a. Reply in her language (after the guard; checked again inside localize).
+        if user.consent_status == "granted" and not result.get("delete_user"):
+            kit = repo.toolkit(user)
+            reply_lang = kit.get("reply_lang") or "en"
+            if detected_lang and detected_lang != reply_lang:
+                reply_lang = detected_lang
+                repo.update_toolkit(user, reply_lang=None if reply_lang == "en" else reply_lang)
+            if reply_lang != "en" and settings.translate_enabled and replies \
+                    and await _translate_allowed(kv, ident, settings, today):
+                note_key = f"trnote:{ident}:{(today or date.today()).isoformat()}"
+                note = bool(await kv.set(note_key, "1", ex=90_000, nx=True))
+                replies = await localize(replies, reply_lang, model=_translate_model(agent_context), settings=settings,
+                                         own=_own_values(user), note=note)
+                await repo.audit(session, user.id, "translated_out", reply_lang)
 
         # 6b. Messages for a trusted contact (SOS only) pass the same output guard.
         outbox: list[tuple[str, str, Outgoing, Any, bool]] = []

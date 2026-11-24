@@ -153,6 +153,126 @@ Set `WHATSAPP_SOCIAL_TEMPLATE=<template name>` in `.env`.
 - Numbers checked against the official u.ae crime and safety page on 2026-11-19.
 - **Guard fix found by this module's tests:** the output guard used to strip a valid official link when a comma or full stop came right after it. Trailing punctuation is now ignored when checking links (regression test included).
 
+## Flagship: the wage check (Employment protection agent)
+
+The championship entry is the **AI employment protection agent**, starting with one problem: a salary that arrives short or not at all. One message in ("My employer was supposed to pay me AED 1,800, but I only received AED 1,000"), typed or as a voice note in any language, and Rafiq:
+
+1. **Understands**: rules (not the AI) pick out the agreed and received amounts; if one is missing it asks for both.
+2. **Cross-checks**: her saved contract salary and the pay rule for her worker category (private sector: due on the 1st through WPS; domestic workers: within 10 working days).
+3. **Calculates**: the *potential* shortfall and any pattern across months. It is always "potential": only MOHRE or a court decides what is owed.
+4. **Asks**: was a deduction agreed in writing? If yes, it isn't counted as owed.
+5. **Prepares** (on her tap): a case file in Rafiq (her own record, not an official case) and the Arabic + English evidence pack.
+6. **Drafts** (on her tap): the complaint, filled with her own figures. "Nothing has been sent": she reviews and files it herself (MOHRE app, website or 80084).
+7. **Follows up**: when she taps *I've filed it*, her reference number and reminders after 7 days, then every 14.
+
+Code: `app/modules/pay/wagecheck.py` (detection, parsing, steps 1–4) and `app/modules/pay/node.py` (steps 5–6, using the case manager). Every step is logged for the impact dashboard. Evals: `wage-check-*` (5 cases). Supporting tools in the same agent: Contract Shield (offer vs contract), job offer check, payslip reader, gratuity calculator, free legal help.
+
+**Contract Shield (offer vs contract).** Photo, PDF or text of the offer, then of the contract. The AI only transcribes; rules compare salary, job title, hours, leave and contract length. It reads English and Arabic (including Arabic-only pages and Arabic-Indic digits) and compares basic with basic and total with total, so a bilingual MOHRE contract with basic + allowances isn't a false alarm; a contract listing only a basic salary is treated as all the pay promised in writing. Job titles in different languages are flagged to check, not guessed.
+
+**Overtime calculator** (type *overtime calculator*, or Pay & Rights → Overtime calculator). Private sector, Article 19 of Decree-Law 33 of 2021, with MOHRE's own formula: hourly wage = basic salary ÷ 30 ÷ 8; extra hours +25%, 10pm–4am +50% (not shift workers), rest day without a day off = the day's wage +50%. Warns when overtime averages more than 2 hours a day (the legal limit; 144 hours every 3 weeks in total). Domestic workers get their own rules instead. Rules only, always "at least", with a button to draft an hours complaint.
+
+## Replies in her language
+
+Rafiq answers in the language she writes or speaks: Swahili, Hindi, Urdu, Bengali, Nepali, Tagalog, Arabic, Malayalam, Tamil, Amharic and more (`app/media/translate.py`). The rules, routing and safety checks still run in English:
+
+- **In:** a typed message that isn't English is translated to English first (phone numbers, IDs and emails masked before it goes to the AI); a voice note already comes back in English with its language code. Rafiq shows "I understood (in English): …" so she can check it.
+- **Out:** the English replies, after the output guard, are translated in one batch. Every number, amount, phone number, link and [placeholder] must come back unchanged, and the output guard runs again on the translation; any message that fails stays in English. Replies containing an ID or long number aren't sent to the AI at all.
+- **Stays in English:** complaint drafts, letters and evidence packs, because MOHRE and employers need that version.
+- *Reply in Swahili* or *English* switches the language; a short note says the reply was translated by AI. Daily cap and timeout; without the AI, Rafiq simply answers in English. The privacy notice says these messages may go to Google Gemini (privacy version 2026-11-24.3, so users are asked again).
+
+## Lead task: My renewals (residency and document deadlines)
+
+**Status check** (in *My renewals*; type *status check*). Everything a renewal depends on is checked in one go: residence visa, passport (and who holds it), Emirates ID, health insurance, whether the employer is renewing, last month's pay, housing, family visa fees and open cases. Five tap-only questions fill what Rafiq doesn't know (no free text, so nothing to inject). The result is red / amber / green with one plain reason per line, and every problem is a button into the agent that fixes it: passport held → Protection, unpaid pay → Employment, insurance deducted or missing → Wellbeing, changing jobs → Career, unlicensed bed space → Housing, family visa fees → Financial. Each handoff is logged (`status_handoff`) for the impact dashboard.
+
+**Bilingual case pack.** Every case exports as a PDF with an Arabic version first (MOHRE, the courts and typing centres work in Arabic), then English: summary, amounts owed month by month for wages cases (from the worker's own pay records), timeline and what to bring to MOHRE. The Arabic wording is fixed template text (have a native speaker or typing centre check it before launch); the worker's own entries are copied as written, never machine-translated. Arabic is shaped and laid out right to left with arabic-reshaper and python-bidi, using the bundled DejaVu Sans font (free licence, `app/media/fonts`).
+
+**Free legal help** (type *free legal help* or *I need a lawyer*, or tap it on any case). Rafiq is not a lawyer, so when a case needs one it lists the free official routes: MOHRE 80084 (advice and complaints, including domestic workers), Dubai Courts' *Shoor* programme (one free consultation with a licensed law firm, 04 334 7777), the Dubai CDA Legal Clinic, Abu Dhabi Judicial Department legal aid, Ministry of Justice consultation in other emirates, and the embassy labour office. It is also offered when a case ends *Not resolved* or *Sent to Labour Court*.
+
+About 9 in 10 people living in Dubai are expatriates, and every one of them runs on paperwork deadlines. *My renewals* (first row of the main menu) keeps one calendar for the residence visa, Emirates ID, passport, family visa and Ejari:
+
+- **One calendar:** expiry dates come from the profile, from documents saved in *My documents*, or typed in; sorted by urgency (red within 30 days).
+- **Cross-checks:** warns when the passport expires less than 6 months after the visa (renewal can be refused) and when the Emirates ID and visa dates don't match.
+- **What each renewal needs:** who files it (employer, you, embassy), where (GDRFA/Amer in Dubai, ICP elsewhere, embassy, DLD), the steps, and what happens if late (Emirates ID: AED 20 a day after 30 days, max AED 1,000; overstay after grace: AED 50 a day).
+- **Readiness checklist:** tick documents as you collect them; status moves from *Not started* to *Done*.
+- **Reminders:** scheduled automatically (e.g. 60, 30 and 7 days before a residence visa expires) and shown in the Life Manager.
+- **Renewal pack:** a printable PDF of steps, checklist and dates.
+- **Next cycle:** marking *Done* asks for the new expiry date and resets the reminders (the visa reminders follow it).
+- **Official sites:** each renewal links only to the official place to apply and check status (GDRFA, ICP, MOFA embassy list, DLD, u.ae), with a reminder never to pay through a link in a message.
+- **Status from official messages:** forward or paste the SMS/email from ICP, GDRFA, Amer or Ejari (or tap *Paste official SMS*). Rules (no AI) read the status (*Submitted*, *Action needed*, *Done*), the application number and any new expiry date, then update the tracker and reminders. The message itself is not stored. A message with a non-official link or asking for card details or a code is flagged as a likely scam and changes nothing. There is no public ICP/GDRFA API for third parties, so this is how Rafiq stays in step with the government systems (e.g. ICP's own AI renewal service) instead of competing with them.
+
+Rafiq never files anything: the employer, an official centre or the person does. Type *my renewals*, *renew my visa*, *renew my emirates id* or *renew my passport*.
+
+## Agents: one orchestrator, six specialists
+
+Rafiq is one LangGraph graph with one AI model. The `route` node is the orchestrator: it checks consent, then crisis and abuse signs, then picks a specialist by rules (the AI picks only from a fixed list when the rules can't). Each specialist is a group of nodes with its **own** tool allow-list. A tool is refused unless both the node and the agent that owns it hold it (`app/security/tool_policy.py`, `app/agent/agents.py`). Every message records which agent handled it.
+
+| Agent | What it does | Never |
+| --- | --- | --- |
+| Rafiq orchestrator | Checks consent, then crisis and abuse signs first; rules pick the specialist, the AI picks only from a fixed list when the rules can't. | acts on another person's data; lets the AI choose a tool or write advice |
+| Employment agent | Job offer and contract checks, salary watch and gaps, evidence packs, letters and dispute cases. | contacts an employer, recruiter or office; submits a complaint for the worker; opens saved ID documents; gives a legal ruling |
+| Protection agent | Crisis and abuse detection, exploitation early warning, incident records, emergency help and SOS. | sends an SOS without the worker's confirmation; messages anyone but the opted-in trusted contact; decides for the worker whether to leave or report |
+| Life admin agent | Renewals calendar (visa, Emirates ID, passport, tenancy) with document checks and reminders, legal status, journey checklists, document vault, housing, trusted services and the Life Manager brief. | files a visa or renewal application; shares a saved document with anyone |
+| Financial agent | Sending money home, budgets, savings goals, loan costs, rate alerts and financial scam checks. | moves or holds money; opens saved documents; recommends a specific lender |
+| Wellbeing agent | Friends, free events, opt-in weekly check-ins and healthcare navigation. Crisis words go to the Protection agent. | diagnoses or suggests prescription medicine; opens documents or salary records |
+| Career agent (roadmap) | Skills gap to a target job, 90-day plan, CV, application and interview tracker, safe job search. | applies for a job or contacts an employer; opens saved documents or salary records |
+
+## Guardian features (Employment, Protection, Life admin)
+
+- **What I'm owed:** contract salary vs amount received per month; asks whether a shortfall was an agreed deduction; names a pattern after 2 short months. Type *what am i owed*.
+- **Payslip reading:** photo or PDF; Gemini transcribes, rules pick net, gross, basic and deductions; the payslip isn't kept. Type *read my payslip*.
+- **Dispute case manager:** open a case (wages, passport, contract, safety, other), get evidence, file it yourself, record the reference number, follow-up check-ins after 7 days and then every 14, record the outcome, download the history as a PDF. Type *my cases*.
+- **Protection early warning:** two or more exploitation signs together (unpaid wages, debt to repay before leaving, passport held, locked in, threats, violence, no rest, phone taken, no food, forced work, deceptive job) go to the Protection agent: names the signs (no legal ruling), asks "Are you safe right now?", gives confidential help, starts a dated incident record, offers the SOS. Rules only; nothing stored unless the worker asks.
+- **Life Manager:** one prioritised list (urgent, coming up, ongoing) across salary, cases, visa, documents, checklists and safety, each with its next action. Weekly Monday push is opt-in. Type *brief*.
+
+## Evaluation
+
+```
+python scripts/run_evals.py            # 47 labelled synthetic cases, rules only, free; writes evals/report.md
+python scripts/run_evals.py --live     # also uses Gemini; counts tokens for cost per task (set --price-in/--price-out)
+```
+
+Case types follow the workshop: complete, missing detail, unexpected input, out of context, plus safety (attacks and emergencies). The test suite fails if the score drops below 100%. The cases were written by the team, so the next step is adding anonymised real messages from user interviews.
+
+## Judges' web demo
+
+Set `DEMO_ENABLED=true` and `DEMO_ACCESS_CODE=<code for judges>` in `.env`, then `docker compose up -d`. Judges open `https://rafiq.afrivance.ai/demo`, enter the code and chat with the same agent (same pipeline, rate limits and guards) as on WhatsApp. They can upload a photo or PDF, share a sample location and open **Impact** for anonymised totals and the evaluation score. Each reply shows which agent handled it.
+
+Update the shared Caddy once so `/demo` is reachable (keeps the file's inode, changes only Rafiq's block):
+
+```
+cp ~/proxy/Caddyfile ~/proxy/Caddyfile.backup-$(date +%F)
+python3 scripts/update_shared_caddy.py ~/proxy/Caddyfile
+docker exec shared_caddy caddy validate --config /etc/caddy/Caddyfile
+docker exec shared_caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+### WhatsApp templates for cases and the brief
+
+```
+rafiq_case_followup:  Rafiq check-in: any news on your {1} complaint (ref {2})? Reply MY CASES to add an update or record how it ended.
+rafiq_weekly_brief:   Good morning from Rafiq. {1} things need your attention this week. Reply BRIEF to see them. Reply STOP to pause messages.
+```
+
+Set `WHATSAPP_CASE_TEMPLATE` and `WHATSAPP_BRIEF_TEMPLATE` to the approved names.
+
+## Growth areas: career, housing, health, money, trusted services
+
+Open *Work, home & health* in the main menu.
+
+- **Career (Career agent):** pick your job now, your years and the skills you have; Rafiq shows the target role, the skills to build and a 90-day plan, makes a one-page CV (PDF, contact details left blank), tracks applications and interview dates (reminder the day before), gives interview practice and explains how to change jobs without a one-year permit ban (MOHRE guidance, May 2026). It never applies for a job or contacts an employer.
+- **Housing (Life admin agent):** checks a room ad or rental agreement before you pay (pay-before-viewing, no Ejari, cash only, partitions or bed spaces under Dubai Law No. 4 of 2026, overcrowding, large deposits, extra fees, and what's missing), the real monthly cost, a viewing checklist, the 90-day rent-increase rule and the DLD Smart Rental Index, a monthly rent reminder, and a landlord case in *My cases*.
+- **Health (Wellbeing agent):** insurance rights (mandatory, employer-paid for private-sector and domestic workers in every emirate since 1 January 2025), where to get care, no-insurance steps with a request letter, bill terms, what to tell and ask a doctor, appointment reminders. It never diagnoses or suggests prescription medicine.
+- **Grow my money (Financial agent):** savings goals in the home currency converted at today's rate with progress and an optional monthly check-in, a family budget that names pressure points and proposes a plan, the yearly cost of transfer fees, and a loan cost calculator. It never moves money or recommends a lender.
+- **Find trusted help (Life admin agent):** a directory in three labelled tiers: official bodies, licensed business types with how to check the licence, and community help marked "not checked by Rafiq". No private business is listed until it has been verified (`PARTNERS` is empty).
+
+Reminders the user asks for (rent, appointments, interviews, savings) are stored with encrypted wording in `user_reminders` and sent by a daily job at 08:30 UAE time; they also appear in the Life Manager.
+
+```
+rafiq_reminder:  Rafiq reminder: {{1}} Reply MENU for help or STOP to pause messages.
+```
+
+Set `WHATSAPP_REMINDER_TEMPLATE` to the approved name.
+
 ## "Do it for me": tasks Rafiq carries out
 
 Rafiq doesn't just answer questions, it does jobs for the user. The rule for all of them: **Rafiq prepares, the user confirms, and Rafiq only acts on the user's own things or towards a person the user chose who agreed.** It never contacts an employer, agency or government office.
@@ -182,7 +302,7 @@ Open *Do it for me* (first row of the main menu) or type the task name.
 ```
 rafiq_doc_expiry:  Rafiq reminder: your {{1}} expires on {{2}} ({{3}} days). Start the renewal now so you always have valid papers. Reply MENU for help.
 rafiq_rate_alert:  Rafiq rate alert: 1 AED = {{2}} {{1}} today, at or above your target of {{3}}. Compare providers before you send. Reply COMPARE for tips.
-rafiq_sos_alert:   SOS from {{1}} via Rafiq. They say they need help and may be in danger. Location: {{2}}. Call or message them now. In the UAE, police: 999. Human trafficking & abuse line: 800 7283.
+rafiq_sos_alert:   SOS from {{1}} via Rafiq. They say they need help and may be in danger. Location: {{2}}. Call or message them now. In the UAE, police: 999. Human trafficking hotline: 800 7283.
 ```
 
 Set `WHATSAPP_VAULT_TEMPLATE`, `WHATSAPP_RATE_TEMPLATE` and `WHATSAPP_SOS_TEMPLATE` to the approved names.

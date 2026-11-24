@@ -165,7 +165,7 @@ async def test_llm_extractor_timeout_and_errors_fall_back():
 async def test_menu_shows_job_check_first(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert chat.ids_of(r)[:2] == ["menu:tasks", "menu:job"]
+    assert chat.ids_of(r)[:3] == ["menu:pay", "menu:job", "menu:tasks"]
 
 
 async def test_check_scam_offer_end_to_end(chat: Chat):
@@ -180,7 +180,7 @@ async def test_check_scam_offer_end_to_end(chat: Chat):
     assert "https://neaims.go.ke/EmploymentAgencyList.aspx" in rep      # Kenya-specific agency check
     assert "https://www.mohre.gov.ae" in rep
     assert "dubaijobs2026@gmail.com" not in rep                        # never echoes contact details
-    assert chat.ids_of(r) == ["job:questions", "job:check", "menu:main"]
+    assert chat.ids_of(r) == ["job:questions", "job:agency", "job:check"]
     r = await chat.tap("job:questions")
     assert "How many days off" in r[0].text and "MOHRE offer letter" in r[0].text
 
@@ -315,7 +315,7 @@ async def test_existing_users_reconsent_for_new_privacy_terms(chat: Chat, monkey
     r = await chat.say("menu")
     assert "has been updated" in r[0].text
     r = await chat.tap("consent:more")
-    assert "Job offers, voice notes and messages I don't understand" in r[0].text
+    assert "messages I don't understand or in other languages" in r[0].text
 
 
 # ------------------------------------------------------------------ WhatsApp limits for Module 2 screens

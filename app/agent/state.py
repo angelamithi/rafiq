@@ -21,6 +21,7 @@ class AgentState(TypedDict, total=False):
     content_guard: Any        # injection scan of a pasted document (job offer), never blocks
     inferred_topic: str       # set when the AI (not the rules) picked the topic
     auto_offer: bool          # a pasted job offer was detected without the user asking
+    agent: str                     # which specialist handled the message (app/agent/agents.py)
     outbox: list[dict[str, Any]]  # SOS messages for the user's trusted contact (channel, to, out, template)
     events: list[tuple[str, str]]  # audit events (event, detail) to record; never message text
 

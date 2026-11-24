@@ -59,7 +59,9 @@ ALLOWED_NUMBERS = {"80084", "999", "998", "997", "901", "800", "600590000", "600
                    # Module 7: mental health support lines
                    "8004673", "800725462", "800506", "80046342",
                    # Module 9: safety lines
-                   "8004888", "8007283", "800111", "116111"}
+                   "8004888", "8007283", "800111", "116111",
+                   # Free legal help: Dubai Courts contact centre (Shoor programme)
+                   "043347777"}
 
 _URL = re.compile(r"https?://[^\s)>\]]+|\bwww\.[^\s)>\]]+", re.IGNORECASE)
 

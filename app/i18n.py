@@ -37,13 +37,14 @@ S: dict[str, dict[str, str]] = {
         "en": (
             "More detail 🔒\n\n"
             "• *What I save:* name (optional), home country, journey stage, visa type and expiry, work sector. If you use them: "
-            "travel or arrival date, checklist ticks, salary record, check-ins on/off (never your answers), and for *Do it for me*: "
-            "employer, salary, job start, rate alert, documents you save, a trusted contact's name and chat (they agree first).\n"
+            "travel or arrival date, checklist ticks, salary record, check-ins on/off (never your answers), and for tasks: "
+            "employer, job start, salary and pay received, savings goals, budget, career plan, reminders, documents you save, case notes, "
+            "a trusted contact (they agree first).\n"
             "• *Not saved:* your messages, voice notes, or photos you don't save.\n"
-            "• *Job offers, voice notes and messages I don't understand:* used to help you, then not kept. They may go to "
-            "Google Gemini. Phone numbers and emails are removed from typed text; photos, PDFs and voice notes go as they are, "
-            "so cover your passport or ID number.\n"
-            "• *Who sees it:* only you and the Rafiq system. Never sold or shared.\n"
+            "• *Job offers, voice notes, messages I don't understand or in other languages:* used to help you, then not kept. They may go to "
+            "Google Gemini. Phone numbers and emails are removed from text; photos, PDFs and voice notes go as they are, "
+            "so cover ID numbers.\n"
+            "• *Who sees it:* only you and Rafiq. Never sold or shared.\n"
             "• *How long:* until you delete it, or {months} months without using Rafiq.\n"
             "• *Laws:* UAE Personal Data Protection Law, and Kenya's Data Protection Act.\n\n"
             "Do you agree?"
@@ -185,7 +186,7 @@ S: dict[str, dict[str, str]] = {
     "country_other": {"en": "Other"},
     # ------------------------------------------------------------------ Module 2: Job Safety
     "menu_job": {"en": "Check a job offer"},
-    "menu_job_d": {"en": "Spot scams before you pay or travel"},
+    "menu_job_d": {"en": "Offer and contract checks, scam warnings"},
     "job_intro": {
         "en": (
             "🛡️ *Job offer check*\n\n"
@@ -194,9 +195,20 @@ S: dict[str, dict[str, str]] = {
         ),
     },
     "job_auto": {"en": "This looks like a job offer, so I checked it for you 👇"},
+    "job_vague": {
+        "en": (
+            "That's too short for me to check safely. 🔍 Please send the *whole offer*: paste the full message, "
+            "or send a photo or PDF of it.\n\n"
+            "I look for: the employer's real name, the job and salary, the visa type, and any fee they ask for. "
+            "Don't send your passport or pay anything until it's checked."
+        ),
+    },
     "job_media": {"en": "I can't watch videos or stickers. Please send a photo or PDF of the offer, paste its text, or send a voice note 🙏"},
     # ------------------------------------------------------------------ Language & Voice
     "voice_heard": {"en": "🎙️ I heard: “{text}”"},
+    "tr_understood": {"en": "🌐 I understood (in English): “{text}”"},
+    "tr_switched": {"en": "🌐 OK. I'll reply in {language}. Type *English* any time to switch back."},
+    "tr_note": {"en": "🌐 Translated by AI from English. Official documents stay in English. Type *English* to switch."},
     "intent_guess": {"en": "🤔 I think you're asking about *{topic}*. Here's what I have 👇 (Not right? Type *menu*.)"},
     "voice_needs_consent": {
         "en": "🎙️ I can listen to voice notes once you've agreed to the privacy notice (they're written down by our AI provider). Please type *hi* to start.",

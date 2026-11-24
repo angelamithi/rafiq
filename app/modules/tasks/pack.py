@@ -4,7 +4,7 @@ to MOHRE, a lawyer or their embassy. Pure functions (no I/O) so it is easy to te
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from app.i18n import MONTHS, fmt_date, t
@@ -94,16 +94,28 @@ class PackFacts:
     domestic: bool
     home_country: str | None
     sector: str | None
+    received: dict[str, int] = field(default_factory=dict)   # amounts actually received, when known
+    agreed: set[str] = field(default_factory=set)            # shortfalls the worker agreed to
+
+    def owed(self, month: str) -> int | None:
+        st = self.log.get(month)
+        if month in self.agreed or st == "paid":
+            return 0
+        if st == "unpaid":
+            return self.salary
+        got = self.received.get(month)
+        return max(0, self.salary - got) if got is not None else None
 
 
 def summary(f: PackFacts, today: date, lang: str | None) -> dict[str, str]:
-    unpaid = [k for k, v in sorted(f.log.items()) if v == "unpaid"]
-    part = [k for k, v in sorted(f.log.items()) if v == "part"]
+    unpaid = [k for k, v in sorted(f.log.items()) if v == "unpaid" and k not in f.agreed]
+    part = [k for k, v in sorted(f.log.items()) if v == "part" and k not in f.agreed]
     g_text, _ = gratuity(f.salary, f.start, today, lang)
+    total = sum(f.owed(k) or 0 for k in f.log)
     return {
         "unpaid": ", ".join(month_label(k) for k in unpaid) or "-",
         "part": ", ".join(month_label(k) for k in part) or "-",
-        "owed": f"{f.salary * len(unpaid):,}",
+        "owed": f"{total:,}",
         "gratuity": g_text,
         "months_text": ", ".join([*(month_label(k) for k in unpaid), *(f"{month_label(k)} (part)" for k in part)]) or "-",
     }
@@ -113,10 +125,13 @@ def build(f: PackFacts, today: date, lang: str | None) -> bytes:
     s = summary(f, today, lang)
     status = {"unpaid": t("pack_status_unpaid", lang), "part": t("pack_status_part", lang),
               "paid": t("pack_status_paid", lang)}
-    rows = [[t("pack_col_month", lang), t("pack_col_status", lang), t("pack_col_owed", lang)]]
+    rows = [[t("pack_col_month", lang), t("pack_col_status", lang), "Received (AED)", t("pack_col_owed", lang)]]
     for k, v in sorted(f.log.items()):
-        owed = f"{f.salary:,}" if v == "unpaid" else (t("pack_to_confirm", lang) if v == "part" else "0")
-        rows.append([month_label(k), status[v], owed])
+        o = f.owed(k)
+        got = f.received.get(k)
+        st = "Agreed deduction" if k in f.agreed else status[v]
+        rows.append([month_label(k), st, f"{got:,}" if got is not None else ("0" if v == "unpaid" else "-"),
+                     t("pack_to_confirm", lang) if o is None else f"{o:,}"])
     start = f"{MONTHS['en'][f.start.month - 1]} {f.start.year}" if f.start else "-"
     worker = [
         ["Item", "Details"],
@@ -129,8 +144,8 @@ def build(f: PackFacts, today: date, lang: str | None) -> bytes:
     ]
     owed = [
         ["Item", "Amount"],
-        ["Unpaid months", f"AED {s['owed']}"],
-        ["Part-paid months", t("pack_to_confirm", lang) if s["part"] != "-" else "-"],
+        ["Total owed (known amounts)", f"AED {s['owed']}"],
+        ["Months with an unknown amount", ", ".join(month_label(k) for k in f.log if f.owed(k) is None) or "-"],
         ["End-of-service gratuity (if the job ends)", s["gratuity"]],
     ]
     letter = t("pack_letter", lang, name=f.name, employer=f.employer, start=start, salary=f"{f.salary:,}",

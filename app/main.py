@@ -102,6 +102,11 @@ def create_app() -> FastAPI:
         await dispatch(telegram.parse_update(payload), background)
         return JSONResponse({"ok": True})
 
+    if s.demo_enabled:   # judges' web demo (off by default)
+        from app.demo.routes import router as demo_router
+
+        app.include_router(demo_router)
+
     return app
 
 

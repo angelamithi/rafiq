@@ -47,6 +47,8 @@ class Outgoing(BaseModel):
     file: bytes | None = None
     filename: str | None = None
     file_mime: str | None = None
+    # Stays in English even when replies are translated (complaint drafts, letters: officials need this version).
+    keep_english: bool = False
 
     def all_option_ids(self) -> list[str]:
         ids = [b.id for b in self.buttons]

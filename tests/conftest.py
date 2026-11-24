@@ -18,7 +18,7 @@ os.environ.update(
     TELEGRAM_ENABLED="true",
     TELEGRAM_WEBHOOK_SECRET="test-telegram-secret",
     USE_QUEUE="false",
-    PRIVACY_POLICY_VERSION="2026-11-21.1",
+    PRIVACY_POLICY_VERSION="2026-11-24.3",
 )
 
 from app.channels.base import Incoming, Outgoing  # noqa: E402
@@ -52,6 +52,7 @@ class Chat:
         self.doc_model = None       # fake Gemini for reading photos/scans; None = no AI
         self.intent_model = None    # fake Gemini for understanding unclear messages; None = rules only
         self.fx_fetcher = None      # fake exchange-rate source
+        self.translate_model = None  # fake Gemini for translating; None = English only
         self.relayed: list[tuple[str, str, Outgoing, object]] = []   # messages to a trusted contact
 
     async def _relay(self, channel: str, to: str, out: Outgoing, template=None) -> None:
@@ -68,7 +69,7 @@ class Chat:
                                      relay=self._relay,
                                      agent_context={"extractor": self.extractor, "media_loader": self.media_loader,
                                                     "doc_model": self.doc_model, "intent_model": self.intent_model,
-                                                    "fx_fetcher": self.fx_fetcher})
+                                                    "fx_fetcher": self.fx_fetcher, "translate_model": self.translate_model})
 
     async def say(self, text: str) -> list[Outgoing]:
         return await self._go(text=text)
@@ -101,13 +102,13 @@ def chat(kv) -> Chat:
     return Chat(kv)
 
 
-async def onboard(c: Chat, *, name: str = "Wanjiru", country: str = "Kenya") -> None:
+async def onboard(c: Chat, *, name: str = "Wanjiru", country: str = "Kenya", visa_expiry: str = "15/03/2027") -> None:
     await c.say("hi")
     await c.tap("consent:yes")
     await c.say(name)
     await c.tap("stage:offer")
     await c.tap(f"country:{country}")
     await c.tap("visa:visit")
-    await c.say("15/03/2027")
+    await c.say(visa_expiry)
     await c.tap("sector:hospitality")
     await c.tap("summary:ok")

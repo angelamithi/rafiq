@@ -18,7 +18,9 @@ from app.channels.base import Incoming, Outgoing
 from app.channels.sender import _client, keep_typing, sender_for
 from app.channels.whatsapp import send_template
 from app.config import get_settings
-from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, VaultDoc, utcnow
+from app.db.models import (
+    ArrivalPlan, AuditLog, Case, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, UserReminder, VaultDoc, utcnow,
+)
 from app.db.session import init_db, sessionmaker
 from app.logging_setup import setup_logging
 from app.security.ratelimit import KV
@@ -110,6 +112,8 @@ async def cleanup(ctx: dict[str, Any]) -> None:
             await session.execute(delete(SocialPrefs).where(SocialPrefs.user_id.in_(stale)))
             await session.execute(delete(Toolkit).where(Toolkit.user_id.in_(stale)))
             await session.execute(delete(VaultDoc).where(VaultDoc.user_id.in_(stale)))
+            await session.execute(delete(Case).where(Case.user_id.in_(stale)))
+            await session.execute(delete(UserReminder).where(UserReminder.user_id.in_(stale)))
             await session.execute(delete(User).where(User.id.in_(stale)))
             session.add(AuditLog(user_ref=None, event="retention_cleanup", detail=f"removed {len(stale)} users"))
         await session.execute(delete(AuditLog).where(AuditLog.created_at < now - AUDIT_RETENTION))
@@ -125,7 +129,9 @@ async def send_reminder(r) -> bool:  # type: ignore[no-untyped-def]
         kind = getattr(r, "kind", "visa")
         template = {"departure": s.whatsapp_departure_template, "arrival": s.whatsapp_arrival_template,
                     "pay": s.whatsapp_pay_template, "social": s.whatsapp_social_template,
-                    "vault": s.whatsapp_vault_template, "rate": s.whatsapp_rate_template}.get(kind, s.whatsapp_visa_template)
+                    "vault": s.whatsapp_vault_template, "rate": s.whatsapp_rate_template,
+                    "case": s.whatsapp_case_template, "brief": s.whatsapp_brief_template,
+                    "reminder": s.whatsapp_reminder_template}.get(kind, s.whatsapp_visa_template)
         if not template:
             log.info("No WhatsApp template set for %s reminders; skipping", kind)
             return False
@@ -195,6 +201,36 @@ async def vault_reminders(ctx: dict[str, Any]) -> None:
     log.info("Document expiry reminders sent: %s", n)
 
 
+async def case_follow_ups(ctx: dict[str, Any]) -> None:
+    from datetime import date
+
+    from app.modules.cases.node import send_case_follow_ups
+
+    async with sessionmaker()() as session:
+        n = await send_case_follow_ups(session, send_reminder, date.today())
+    log.info("Case follow-ups sent: %s", n)
+
+
+async def user_reminders(ctx: dict[str, Any]) -> None:
+    from datetime import date
+
+    from app.modules.reminders.store import send_due
+
+    async with sessionmaker()() as session:
+        n = await send_due(session, send_reminder, date.today())
+    log.info("User reminders sent: %s", n)
+
+
+async def weekly_briefs(ctx: dict[str, Any]) -> None:
+    from datetime import date
+
+    from app.modules.life.node import send_weekly_briefs
+
+    async with sessionmaker()() as session:
+        n = await send_weekly_briefs(session, send_reminder, date.today())
+    log.info("Weekly Life Manager briefs sent: %s", n)
+
+
 async def rate_alerts(ctx: dict[str, Any]) -> None:
     from app.modules.tasks.rates import check_rate_alerts
 
@@ -240,6 +276,9 @@ class WorkerSettings:
         cron(wellbeing_checkins, weekday={4}, hour={14}, minute={15}),   # Fridays, 18:15 in the UAE
         cron(rule_monitor, weekday={0}, hour={3}, minute={0}),            # Mondays, 07:00 in the UAE
         cron(vault_reminders, hour={5}, minute={30}),                     # 09:30 in the UAE
+        cron(case_follow_ups, hour={6}, minute={15}),                     # 10:15 in the UAE
+        cron(user_reminders, hour={4}, minute={30}),                      # 08:30 in the UAE
+        cron(weekly_briefs, weekday={0}, hour={5}, minute={0}),           # Mondays, 09:00 in the UAE
         cron(rate_alerts, hour={4, 8, 12, 16}, minute={45}),              # 4 times a day
     ]
     on_startup = startup

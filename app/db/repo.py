@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import re
 
-from app.db.models import ArrivalPlan, AuditLog, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, VaultDoc, utcnow
+from app.db.models import (
+    ArrivalPlan, AuditLog, Case, DeparturePlan, PayRecord, SocialPrefs, Toolkit, User, UserReminder, VaultDoc, utcnow,
+)
 from app.security.crypto import decrypt, encrypt, hash_identity
 
 EDITABLE_FIELDS = {"display_name", "journey_stage", "home_country", "visa_type", "visa_expiry", "sector", "language"}
@@ -230,6 +232,8 @@ async def delete_user(s: AsyncSession, u: User) -> None:
     await s.execute(delete(SocialPrefs).where(SocialPrefs.user_id == uid))
     await s.execute(delete(Toolkit).where(Toolkit.user_id == uid))
     await s.execute(delete(VaultDoc).where(VaultDoc.user_id == uid))
+    await s.execute(delete(Case).where(Case.user_id == uid))
+    await s.execute(delete(UserReminder).where(UserReminder.user_id == uid))
     await s.execute(delete(User).where(User.id == uid))
     # Keep a minimal, anonymous record that a deletion happened (no personal data).
     s.add(AuditLog(user_ref=uid, event="data_deleted", detail="user requested deletion"))

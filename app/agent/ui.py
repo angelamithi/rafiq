@@ -31,15 +31,15 @@ class MenuItem:
 
 # Module 1 menu. Later modules insert their items ABOVE these (most useful first).
 MENU_ITEMS: list[MenuItem] = [
+    MenuItem("menu:pay", "menu_pay", "menu_pay_d"),            # Lead: employment protection (wage check)
+    MenuItem("menu:job", "menu_job", "menu_job_d"),            # Job offer + Contract Shield
     MenuItem("menu:tasks", "menu_tasks", "menu_tasks_d"),      # "Do it for me"
-    MenuItem("menu:job", "menu_job", "menu_job_d"),            # Module 2
     MenuItem("menu:legal", "menu_legal", "menu_legal_d"),      # Module 3
+    MenuItem("rnw:menu", "btn_renewals", "menu_renewals_d"),  # Renewals + status check
     MenuItem("menu:plan", "menu_plan", "menu_plan_d"),         # Module 4
     MenuItem("menu:arrive", "menu_arrive", "menu_arrive_d"),   # Module 5
-    MenuItem("menu:pay", "menu_pay", "menu_pay_d"),            # Module 6
     MenuItem("menu:money", "menu_money", "menu_money_d"),      # Module 8
-    MenuItem("menu:social", "menu_social", "menu_social_d"),   # Module 7
-    MenuItem("menu:profile", "menu_profile", "menu_profile_d"),
+    MenuItem("menu:grow", "menu_grow", "menu_grow_d"),          # Career, housing, health, savings, profile
     MenuItem("menu:help", "menu_help", "menu_help_d"),
 ]
 

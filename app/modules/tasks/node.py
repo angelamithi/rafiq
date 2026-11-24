@@ -24,6 +24,7 @@ from app.db import repo
 from app.i18n import fmt_date, t
 from app.modules.help.content import EMBASSIES, UAE_MISSIONS
 from app.modules.money.content import CURRENCY
+from app.modules.pay import amounts as am
 from app.modules.tasks import contract as ct
 from app.modules.tasks import pack as pk
 from app.modules.tasks import rates as fx
@@ -103,6 +104,8 @@ def _name(user: Any, lang: str | None) -> str:
 
 def tasks_menu(lang: str | None) -> Outgoing:
     rows = [ListRow(id=f"task:{k}", title=t(f"task_m_{k}", lang), description=t(f"task_m_{k}_d", lang)) for k in MENU]
+    rows.insert(1, ListRow(id="case:list", title=t("task_m_cases", lang), description=t("task_m_cases_d", lang)))
+    rows.insert(0, ListRow(id="life:brief", title=t("task_m_brief", lang), description=t("task_m_brief_d", lang)))
     return Outgoing(text=t("tasks_menu", lang), menu=ListMenu(button=t("btn_choose", lang), rows=rows))
 
 
@@ -170,7 +173,7 @@ def _pack_next_step(state: AgentState, config: RunnableConfig) -> dict[str, Any]
 
 def _pack_build(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     user, lang = state["user"], state["user"].language
-    authorize(NODE, "build_document")
+    authorize("tasks.employment", "build_document")
     today = _today(config)
     kit = repo.toolkit(user)
     start = date.fromisoformat(kit["job_start"]) if kit.get("job_start") else None
@@ -178,7 +181,9 @@ def _pack_build(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 
     facts = pk.PackFacts(name=_name(user, lang), employer=kit.get("employer") or t("pack_employer_unknown", lang),
                          salary=int(kit["salary"]), start=start, log=repo.pay_log(user), domestic=is_domestic(user),
-                         home_country=user.home_country, sector=user.sector)
+                         home_country=user.home_country, sector=user.sector,
+                         received=am.received(user),
+                         agreed=am.agreed_months(user))
     pdf = pk.build(facts, today, lang)
     s = pk.summary(facts, today, lang)
     _set_draft(user, None, None)
@@ -193,7 +198,7 @@ def _pack_build(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 def _pack_input(state: AgentState, config: RunnableConfig, text: str, skip: bool) -> dict[str, Any]:
     user, lang = state["user"], state["user"].language
     step = user.step
-    authorize(NODE, "update_own_toolkit")
+    authorize("tasks.employment", "update_own_toolkit")
     if step == "task:pack_employer":
         if skip:
             _set_draft(user, step, {**_draft(user), "employer_skipped": True})
@@ -250,7 +255,7 @@ async def _vault_file(state: AgentState, config: RunnableConfig, session: Any) -
     kind = _draft(user).get("kind", "other")
     if msg.kind != "media" or msg.media_type not in ("image", "document"):
         return _out(state, Outgoing(text=t("vault_need_file", lang), buttons=_cancel(lang)))
-    authorize(NODE, "update_own_vault")
+    authorize("tasks.life_admin", "update_own_vault")
     if await vt.count(session, user.id) >= VAULT_MAX_DOCS:
         _set_draft(user, None, None)
         return _out(state, Outgoing(text=t("vault_full", lang, max=VAULT_MAX_DOCS), buttons=_back(lang)))
@@ -324,7 +329,7 @@ async def _vault_set_date(state: AgentState, config: RunnableConfig, session: An
 
 async def _vault_open(state: AgentState, session: Any, doc_id: str) -> dict[str, Any]:
     user, lang = state["user"], state["user"].language
-    authorize(NODE, "get_own_vault")
+    authorize("tasks.life_admin", "get_own_vault")
     doc = await vt.get(session, user.id, doc_id)
     data = vt.decrypt_file(doc.file_enc) if doc else None
     if doc is None or data is None:
@@ -395,7 +400,7 @@ async def _sos_send(state: AgentState, config: RunnableConfig, *, lat: float | N
         return _out(state, Outgoing(text=t("sos_no_contact", lang),
                                     buttons=[_b("task:sos", "btn_sos_setup", lang), _b("menu:help", "menu_help", lang)]))
     nonce = kit.get("sos_nonce")
-    authorize(NODE, "send_sos", confirmed_nonce=nonce, expected_nonce=nonce)   # set when the user tapped Send SOS
+    authorize("tasks.protection", "send_sos", confirmed_nonce=nonce, expected_nonce=nonce)   # set when the user tapped Send SOS
     from datetime import datetime, timezone
 
     hour = f"sos:{user.id}:{datetime.now(timezone.utc):%Y%m%d%H}"
@@ -527,7 +532,7 @@ async def _rate_screen(state: AgentState, config: RunnableConfig) -> dict[str, A
 async def _rate_set(state: AgentState, config: RunnableConfig, *, pct: float | None = None,
                     target: float | None = None) -> dict[str, Any]:
     user, lang = state["user"], state["user"].language
-    authorize(NODE, "update_own_toolkit")
+    authorize("tasks.financial", "update_own_toolkit")
     cur = _currency(user)
     rates = await fx.get_rates(ctx(config).get("kv"), _settings(config).fx_url, ctx(config).get("fx_fetcher"))
     if not cur or not rates or cur not in rates.rates:
@@ -572,7 +577,7 @@ def _form_ask(state: AgentState, config: RunnableConfig, draft: dict[str, Any]) 
         draft["q"] = f.key
         _set_draft(user, "task:form", draft)
         return _out(state, Outgoing(text=t(f.question, lang), buttons=_cancel(lang)))
-    authorize(NODE, "build_document")
+    authorize("tasks.employment", "build_document")
     from app.modules.tasks.forms import build_letter
 
     today = _today(config)
@@ -653,6 +658,10 @@ def _contract_report(state: AgentState, offer: ct.Terms, contract: ct.Terms, off
     worse = any(r.worse for r in rows)
     unknown = any(r.worse is None for r in rows)
     lines += ["", t("contract_bad" if worse else "contract_ok", lang)]
+    if any(r.key == "salary_basic_only" for r in rows):
+        lines.append(t("contract_salary_basic_only", lang))
+    if any(r.key == "job" and r.worse is None and r.offer and r.contract for r in rows):
+        lines.append(t("contract_arabic_job", lang))
     if unknown and not worse:
         lines.append(t("contract_partial", lang))
     lines += ["", t("contract_note", lang)]
@@ -671,7 +680,7 @@ async def _contract_save(state: AgentState, config: RunnableConfig, session: Any
         return _out(state, Outgoing(text=t("vault_download_failed", lang), buttons=_back(lang)))
     if await vt.count(session, user.id) + 2 > VAULT_MAX_DOCS:
         return _out(state, Outgoing(text=t("vault_full", lang, max=VAULT_MAX_DOCS), buttons=_back(lang)))
-    authorize(NODE, "update_own_vault")
+    authorize("tasks.employment", "save_to_vault")
     from app.media.fetch import MediaError, fetch_media
     from app.media.reader import sniff
 
@@ -837,7 +846,7 @@ async def tasks(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     if action.startswith("doc:"):
         return await _vault_open(state, session, action[4:])
     if action.startswith("docdel:"):
-        authorize(NODE, "update_own_vault")
+        authorize("tasks.life_admin", "update_own_vault")
         ok = await vt.remove(session, user.id, action[7:])
         return _out(state, Outgoing(text=t("vault_deleted" if ok else "vault_not_found", lang),
                                     buttons=_back(lang, _b("task:vault", "task_m_vault", lang))),

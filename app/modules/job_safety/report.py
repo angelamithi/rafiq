@@ -25,8 +25,8 @@ def next_buttons(lang: str | None) -> Outgoing:
         text=t("job_next", lang),
         buttons=[
             Button(id="job:questions", title=t("btn_questions", lang)),
+            Button(id="job:agency", title=t("btn_check_agency", lang)),
             Button(id="job:check", title=t("btn_check_another", lang)),
-            Button(id="menu:main", title=t("btn_menu", lang)),
         ],
     )
 

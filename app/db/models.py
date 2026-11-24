@@ -4,9 +4,9 @@ are stored only as keyed hashes."""
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -159,6 +159,40 @@ class VaultDoc(Base):
     file_enc: Mapped[bytes] = mapped_column(LargeBinary)          # Fernet-encrypted file bytes
     mime: Mapped[str] = mapped_column(String(40))
     size: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Case(Base):
+    """Dispute case manager and incident records. Everything the worker wrote
+    (notes, reference number, outcome) is in one encrypted JSON blob. Plain
+    columns only say what kind of case it is, where it stands and when to
+    follow up, so the reminder job can find it."""
+
+    __tablename__ = "cases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))          # wages | passport | contract | safety | other
+    status: Mapped[str] = mapped_column(String(16), default="open")   # open | filed | resolved | closed
+    data_enc: Mapped[str | None] = mapped_column(Text)
+    next_check: Mapped[date | None] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UserReminder(Base):
+    """Reminders the user asked for (rent day, a doctor's appointment, a job
+    interview, a savings check-in). The wording is encrypted; only the kind and
+    the date are plain so the daily job can find what's due."""
+
+    __tablename__ = "user_reminders"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))           # rent | appointment | interview | savings
+    due: Mapped[date] = mapped_column(Date, index=True)
+    text_enc: Mapped[str | None] = mapped_column(Text)
+    repeat_monthly: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

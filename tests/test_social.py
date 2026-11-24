@@ -91,6 +91,8 @@ async def db_user(c: Chat) -> User:
 async def test_menu_and_typed_commands(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
+    assert "menu:grow" in chat.ids_of(r)
+    r = await chat.tap("menu:grow")                   # Friends & wellbeing lives in the hub
     assert "menu:social" in chat.ids_of(r)
     r = await chat.tap("menu:social")
     assert [row.id for row in rows(r[0])] == [f"social:{k}" for k in soc.MENU]
@@ -138,7 +140,7 @@ def test_meet_safely_covers_the_main_scams():
 async def test_checkin_toggle_and_moods(chat: Chat):
     await onboard(chat)
     r = await chat.say("ok")                          # no check-in to answer: just the menu
-    assert "menu:social" in chat.ids_of(r)
+    assert "menu:grow" in chat.ids_of(r)
     r = await chat.tap("social:on")
     assert "every Friday" in r[0].text and "social:off" in chat.ids_of(r)
     r = await chat.say("GOOD")

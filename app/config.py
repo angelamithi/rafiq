@@ -43,10 +43,17 @@ class Settings(BaseSettings):
     intent_ai_enabled: bool = True
     intent_ai_per_day: int = 50
 
+    # --- Judges' web demo (/demo) ---
+    demo_enabled: bool = False
+    demo_access_code: str = ""      # given to judges in the submission; at least 12 characters
+
     # --- "Do it for me" tasks ---
     tasks_enabled: bool = True
     fx_url: str = "https://open.er-api.com/v6/latest/AED"   # host must be in app/modules/tasks/rates.py ALLOWED_HOSTS
     # Voice notes (Language & Voice): transcribed and translated to English by the doc model (Gemini).
+    translate_enabled: bool = True          # reply in the worker's language (needs the AI; English if unavailable)
+    translate_per_day: int = 80
+    translate_timeout_seconds: int = 12
     voice_enabled: bool = True
     voice_max_bytes: int = 3_000_000
     voice_max_seconds: int = 180
@@ -57,6 +64,9 @@ class Settings(BaseSettings):
     whatsapp_social_template: str = ""      # approved template for the opt-in weekly "how was your week?" check-in
     whatsapp_vault_template: str = ""       # "Do it for me": a saved document is about to expire
     whatsapp_rate_template: str = ""        # "Do it for me": exchange-rate alert reached
+    whatsapp_case_template: str = ""        # dispute case follow-up check-in
+    whatsapp_brief_template: str = ""       # weekly Life Manager brief
+    whatsapp_reminder_template: str = ""    # reminders the user asked for (rent, appointments, interviews, savings)
     whatsapp_sos_template: str = ""         # "Do it for me": SOS to a trusted contact (outside the 24 h window)
     whatsapp_public_number: str = ""        # e.g. 9715XXXXXXXX, for wa.me invite links (digits only)
     whatsapp_template_language: str = "en"
@@ -92,7 +102,7 @@ class Settings(BaseSettings):
     guard_cooldown_minutes: int = 30
 
     # --- Privacy ---
-    privacy_policy_version: str = "2026-11-21.1"  # v10: "Do it for me" (documents, employer/salary, trusted contact)
+    privacy_policy_version: str = "2026-11-24.3"  # v13: + chats in other languages go to the AI for translation
     data_retention_days_inactive: int = 365
 
     @property
@@ -126,6 +136,8 @@ class Settings(BaseSettings):
                 raise ValueError(f"Missing required settings in .env: {', '.join(missing)}")
             if len(self.id_hash_pepper) < 32:
                 raise ValueError("ID_HASH_PEPPER must be at least 32 characters")
+            if self.demo_enabled and len(self.demo_access_code) < 12:
+                raise ValueError("DEMO_ACCESS_CODE must be at least 12 characters when DEMO_ENABLED=true")
         return self
 
 
