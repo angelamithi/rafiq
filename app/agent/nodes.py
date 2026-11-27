@@ -18,12 +18,17 @@ from app.agent.parsing import clean_country, clean_name, match_option, parse_dat
 from app.agent.state import AgentState, ctx
 from app.channels.base import Outgoing
 from app.db import repo
+from app.security.tool_policy import authorize
 from app.db.models import User, utcnow
 from app.i18n import COUNTRIES, SECTORS, STAGES, VISAS, VISAS_WITH_EXPIRY, t
 from app.security.tool_policy import ToolNotAllowed, authorize, new_nonce
 
-ONBOARDING_ORDER = ["name", "stage", "country", "visa", "expiry", "sector", "summary"]
-ONBOARDING_STEPS = {"new", "consent", "name", "stage", "country", "country_other", "visa", "expiry", "sector", "summary", "edit"}
+# Employment-first setup: who she is, the kind of work (decides pay and overtime rules),
+# where she's from (language, embassy, helplines) and her contract salary (for the wage check).
+# Stage, visa and expiry are no longer asked at setup; they stay editable in the profile.
+ONBOARDING_ORDER = ["name", "sector", "country", "salary", "summary"]
+ONBOARDING_STEPS = {"new", "consent", "name", "stage", "country", "country_other", "visa", "expiry", "sector", "salary",
+                    "summary", "edit"}
 DELETE_CONFIRM_TTL_SECONDS = 600
 MAX_FUTURE_YEARS = 10
 
@@ -81,8 +86,8 @@ def _advance(user: User, after: str, config: RunnableConfig) -> list[Outgoing]:
     nxt = ONBOARDING_ORDER[ONBOARDING_ORDER.index(after) + 1] if after in ONBOARDING_ORDER else "summary"
     if after == "visa" and user.visa_type in VISAS_WITH_EXPIRY:
         nxt = "expiry"  # a visa with an end date always needs the date, even when editing
-    elif nxt == "expiry" and user.visa_type not in VISAS_WITH_EXPIRY:
-        nxt = "sector"
+    elif after in ("stage", "visa", "expiry"):
+        nxt = "summary"  # profile-only fields (not asked at setup)
 
     if user.return_to and nxt != "expiry":
         target, user.return_to = user.return_to, None
@@ -207,6 +212,18 @@ async def onboarding(state: AgentState, config: RunnableConfig) -> dict[str, Any
         _update(user, "onboarding", "sector", choice.split(":")[1])
         return _out(state, *_advance(user, "sector", config))
 
+    if step == "salary":
+        from app.modules.pay import amounts as am
+
+        if _choice(state, "salary") == "salary:skip":
+            return _out(state, *_advance(user, "salary", config))
+        v = am.parse_amount(text) if state["incoming"].kind == "text" else None
+        if v is None or not (am.MIN_SALARY <= v <= am.MAX_SALARY):
+            return _out(state, ui.text("salary_invalid", lang), ui.salary_prompt(lang))
+        authorize("onboarding", "update_own_profile")   # contract salary is part of her profile
+        repo.update_toolkit(user, salary=v)
+        return _out(state, *_advance(user, "salary", config))
+
     if step == "summary":
         choice = _choice(state, "summary")
         if choice == "summary:edit":
@@ -217,10 +234,7 @@ async def onboarding(state: AgentState, config: RunnableConfig) -> dict[str, Any
         user.step = "ready"
         name = repo.get_display_name(user)
         done = ui.text("done", lang, name=name) if name else ui.text("done_no_name", lang)
-        if user.journey_stage in ("planning", "offer"):
-            done.text += "\n\n" + t("plan_tip", lang)
-        elif user.journey_stage == "arrived":
-            done.text += "\n\n" + t("arr_tip", lang)
+        done.text += "\n\n" + t("emp_tip", lang)
         return _out(state, done, ui.main_menu(lang), events=_event(state, "onboarding_completed"))
 
     if step == "edit":

@@ -20,16 +20,7 @@ from tests.conftest import TODAY, Chat, onboard
 
 async def onboard_arrived(c: Chat, *, sector: str = "hospitality", visa: str = "employment", stage: str = "arrived",
                           name: str = "Joseph") -> None:
-    await c.say("hi")
-    await c.tap("consent:yes")
-    await c.say(name)
-    await c.tap(f"stage:{stage}")
-    await c.tap("country:Uganda")
-    await c.tap(f"visa:{visa}")
-    if visa in ("employment", "visit"):
-        await c.tap("expiry:skip")
-    await c.tap(f"sector:{sector}")
-    await c.tap("summary:ok")
+    await onboard(c, name=name, country="Uganda", sector=sector, stage=stage, visa=visa, visa_expiry=None)
 
 
 async def db_user(c: Chat) -> User:
@@ -48,9 +39,9 @@ def d(days_ago: int) -> str:
 # ------------------------------------------------------------------ the guide
 
 
-async def test_onboarding_points_new_arrivals_to_the_guide(chat: Chat):
-    await onboard_arrived(chat)
-    assert "Your first weeks" in chat.sent[-2].text
+async def test_onboarding_now_points_everyone_to_the_wage_check(chat: Chat):
+    await onboard_arrived(chat)        # setup is employment first; the arrival guide stays under More
+    assert "I was promised 1800 but got 1000" in chat.sent[-2].text and "Your first weeks" not in chat.sent[-2].text
 
 
 async def test_menu_and_typed_commands_open_the_guide(chat: Chat):

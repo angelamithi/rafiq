@@ -19,7 +19,7 @@ Built module by module.
 ## What Module 1 does
 
 - A one-message welcome and a short, plain-language privacy consent ("Tell me more" for detail). English only for now; all text lives in `app/i18n.py`, ready for more languages later.
-- Profile setup in ~8 taps: name (optional), journey stage, home country, visa type, visa expiry date (only when the visa has one), work sector, then a summary to confirm or edit.
+- Employment-first setup in about 5 taps: name (optional), kind of work (decides which pay, hours and overtime rules apply), home country, contract monthly salary (optional, used by the wage check), then a summary to confirm or edit. Setup ends on the employment menu with a wage-check tip. Journey stage and visa details are optional and can be added from the profile or *My visa*.
 - Forgiving input: users can tap buttons, type the option number, type the answer ("nepal", "yes"), or write dates many ways ("15/03/2027", "15 March 2027").
 - Main menu, profile view/edit, pause/resume reminders, help with UAE emergency numbers.
 - Privacy controls anytime: *my data* (export), *delete* (with a one-time confirmation), re-consent when the privacy notice changes, automatic deletion after 12 months of inactivity.
@@ -58,7 +58,7 @@ Then set `WHATSAPP_VISA_TEMPLATE=visa_expiry_reminder` in `.env`. Telegram remin
 
 ## What Module 4 (Departure Planner) does
 
-- *Before you fly* in the main menu (or type *checklist*, *what should I pack?*). New users with a job offer are pointed to it when setup finishes.
+- *Before you fly* in the main menu (or type *checklist*, *what should I pack?*).
 - A **personal checklist** of up to 9 items, built from the profile: passport (6+ months), entry permit (or a *visit visa* warning instead), contract, **exit clearance for the user's own country**, medicines, medical & certificates, copies & contacts, money, packing.
 - **Exit clearance by country** (checked 2026-11-19): Kenya (contract attestation + pre-departure training), India (ECR emigration clearance on eMigrate), Philippines (OEC / OFW Pass), Pakistan (Protector registration), Nepal (final labour approval), Bangladesh (BMET clearance card + 3-day orientation), Uganda (MGLSD clearance + orientation); everyone else gets "ask your labour ministry". Each links to the authority's own site.
 - Tap an item to read what to do, then *Mark as done*; progress (🟩⬜) and "Next up" are saved. Items link straight to the right tool: *Check my offer* (Module 2), *Check a medicine* and *Can I work?* (Module 3).
@@ -77,7 +77,7 @@ Then set `WHATSAPP_DEPARTURE_TEMPLATE=departure_reminder` in `.env`.
 
 ## What Module 5 (Arrival Guide) does
 
-- *Your first weeks* in the main menu, or type *arrival* / *I just arrived*. People who pick "Just arrived" during setup are pointed to it.
+- *Your first weeks* in the main menu, or type *arrival* / *I just arrived*.
 - Up to 9 steps for settling in, built from the profile: SIM card, **medical test & Emirates ID** (or a visit-visa warning instead), work contract, health insurance, **job-loss insurance (ILOE)** (skipped for domestic workers, who are exempt), bank/salary account (WPS), safe housing, official apps, and rights at work.
 - **Typed topics open the right step directly**: *emirates id*, *sim card*, *ejari*, *bed space*, *iloe*, *bank account*, *uae pass*, *my rights*...
 - **Optional arrival date** → "Day 7 in the UAE" and the residence-visa deadline (within 1 month of entry), shown until that step is ticked; overdue gets a clear warning. Reminders on day 21 and day 28 if it's still open (not for visit visas; respects *stop*).
@@ -249,8 +249,8 @@ docker exec shared_caddy caddy reload --config /etc/caddy/Caddyfile
 ### WhatsApp templates for cases and the brief
 
 ```
-rafiq_case_followup:  Rafiq check-in: any news on your {1} complaint (ref {2})? Reply MY CASES to add an update or record how it ended.
-rafiq_weekly_brief:   Good morning from Rafiq. {1} things need your attention this week. Reply BRIEF to see them. Reply STOP to pause messages.
+rafiq_case_followup:  Rafiq check-in: any news on your {{1}} complaint (ref {{2}})? Reply MY CASES to add an update or record how it ended.
+rafiq_weekly_brief:   Good morning from Rafiq. {{1}} things need your attention this week. Reply BRIEF to see them. Reply STOP to pause messages.
 ```
 
 Set `WHATSAPP_CASE_TEMPLATE` and `WHATSAPP_BRIEF_TEMPLATE` to the approved names.

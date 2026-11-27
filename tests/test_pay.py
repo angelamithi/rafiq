@@ -15,19 +15,11 @@ from app.modules.pay.checkins import send_due_checkins
 from app.security.output_guard import check_output
 from app.security.ratelimit import MemoryKV
 from app.security.tool_policy import TOOLS, ToolNotAllowed, authorize
-from tests.conftest import TODAY, Chat
+from tests.conftest import TODAY, Chat, onboard
 
 
 async def onboard_worker(c: Chat, *, sector: str = "construction", name: str = "Ravi") -> None:
-    await c.say("hi")
-    await c.tap("consent:yes")
-    await c.say(name)
-    await c.tap("stage:resident")
-    await c.tap("country:India")
-    await c.tap("visa:employment")
-    await c.tap("expiry:skip")
-    await c.tap(f"sector:{sector}")
-    await c.tap("summary:ok")
+    await onboard(c, name=name, country="India", sector=sector, stage="resident", visa="employment", visa_expiry=None)
 
 
 async def db_user(c: Chat) -> User:

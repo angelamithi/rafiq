@@ -55,10 +55,10 @@ MORE_ITEMS: list[MenuItem] = [
     MenuItem("menu:main", "mm_back", "mm_back_d"),
 ]
 
-EDITABLE = ("name", "stage", "country", "visa", "expiry", "sector")
+EDITABLE = ("name", "sector", "country", "salary", "stage", "visa", "expiry")
 _FIELD_LABEL = {
     "name": "field_name", "stage": "field_stage", "country": "field_country",
-    "visa": "field_visa", "expiry": "field_expiry", "sector": "field_sector",
+    "visa": "field_visa", "expiry": "field_expiry", "sector": "field_sector", "salary": "field_salary",
 }
 
 
@@ -110,9 +110,13 @@ def expiry_prompt(lang: str | None) -> Outgoing:
     return Outgoing(text=t("ask_expiry", lang), buttons=[Button(id="expiry:skip", title=t("btn_skip_for_now", lang))])
 
 
-def sector_prompt(lang: str | None) -> Outgoing:
+def salary_prompt(lang: str | None) -> Outgoing:
+    return Outgoing(text=t("ask_salary", lang), buttons=[Button(id="salary:skip", title=t("btn_skip", lang))])
+
+
+def sector_prompt(lang: str | None, user: User | None = None) -> Outgoing:
     rows = [ListRow(id=f"sector:{k}", title=v["en"]) for k, v in SECTORS.items()]
-    return Outgoing(text=t("ask_sector", lang), menu=ListMenu(button=t("btn_choose", lang), rows=rows))
+    return Outgoing(text=t("ask_sector", lang, name_part=_name_part(user) if user else ""), menu=ListMenu(button=t("btn_choose", lang), rows=rows))
 
 
 def _profile_values(user: User, lang: str | None) -> dict[str, str]:
@@ -127,6 +131,8 @@ def _profile_values(user: User, lang: str | None) -> dict[str, str]:
         "visa": VISAS[user.visa_type]["en"] if user.visa_type in VISAS else ns,
         "expiry": fmt_date(expiry, lang) if expiry else ns,
         "sector": SECTORS[user.sector]["en"] if user.sector in SECTORS else ns,
+        "salary": f"AED {repo.toolkit(user).get('salary'):,}" if user.consent_status == "granted"
+        and isinstance(repo.toolkit(user).get("salary"), int) else ns,
         "reminders": t("off", lang) if user.notifications_paused else t("on", lang),
     }
 
@@ -257,6 +263,8 @@ def options_for_step(step: str, lang: str | None) -> list[tuple[str, str]]:
             return [(f"edit:{f}", t(_FIELD_LABEL[f], lang)) for f in EDITABLE]
         case "name":
             return [("name:skip", "skip")]
+        case "salary":
+            return [("salary:skip", "skip"), ("salary:skip", t("btn_skip", lang))]
         case "expiry":
             return [("expiry:skip", "skip"), ("expiry:skip", t("btn_skip_for_now", lang))]
     return []
@@ -279,7 +287,9 @@ def prompt_for_step(step: str, lang: str | None, user: User, *, months: int = 12
         case "expiry":
             return expiry_prompt(lang)
         case "sector":
-            return sector_prompt(lang)
+            return sector_prompt(lang, user)
+        case "salary":
+            return salary_prompt(lang)
         case "summary":
             return summary_prompt(lang, user)
         case "edit":

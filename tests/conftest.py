@@ -23,6 +23,7 @@ os.environ.update(
 
 from app.channels.base import Incoming, Outgoing  # noqa: E402
 from app.config import get_settings  # noqa: E402
+from app.db import repo  # noqa: E402
 from app.db import session as db_session  # noqa: E402
 from app.security.ratelimit import MemoryKV  # noqa: E402
 from app.service import process_message  # noqa: E402
@@ -102,13 +103,37 @@ def chat(kv) -> Chat:
     return Chat(kv)
 
 
-async def onboard(c: Chat, *, name: str = "Wanjiru", country: str = "Kenya", visa_expiry: str = "15/03/2027") -> None:
+async def onboard(c: Chat, *, name: str = "Wanjiru", country: str = "Kenya", visa_expiry: str | None = "15/03/2027",
+                  sector: str = "hospitality", stage: str | None = "offer", visa: str | None = "visit",
+                  salary: str | None = None) -> None:
+    """Employment-first setup (name, work, country, salary), then the profile fields older
+    tests rely on (stage, visa, expiry) written directly, as a user would set them in her profile."""
     await c.say("hi")
     await c.tap("consent:yes")
     await c.say(name)
-    await c.tap("stage:offer")
+    await c.tap(f"sector:{sector}")
     await c.tap(f"country:{country}")
-    await c.tap("visa:visit")
-    await c.say(visa_expiry)
-    await c.tap("sector:hospitality")
+    if salary:
+        await c.say(salary)
+    else:
+        await c.tap("salary:skip")
     await c.tap("summary:ok")
+    await set_profile(c, stage=stage, visa=visa, visa_expiry=visa_expiry)
+
+
+async def set_profile(c: Chat, *, stage: str | None = None, visa: str | None = None, visa_expiry: str | None = None) -> None:
+    from sqlalchemy import select
+
+    from app.agent.parsing import parse_date
+    from app.db.models import User
+    from app.db.session import sessionmaker
+
+    async with sessionmaker()() as s:
+        u = (await s.execute(select(User).where(User.identity_hash == repo.hash_identity(c.channel, c.phone)))).scalar_one()
+        if stage:
+            u.journey_stage = stage
+        if visa:
+            u.visa_type = visa
+        if visa_expiry:
+            repo.set_field(u, "visa_expiry", parse_date(visa_expiry))
+        await s.commit()

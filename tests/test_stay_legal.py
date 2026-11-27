@@ -193,8 +193,8 @@ async def test_menu_has_stay_legal_second(chat: Chat):
 
 async def test_add_visa_date_from_my_visa(chat: Chat):
     await chat.say("hi"); await chat.tap("consent:yes"); await chat.say("Ali")
-    await chat.tap("stage:arrived"); await chat.tap("country:India"); await chat.tap("visa:none")
-    await chat.tap("sector:retail"); await chat.tap("summary:ok")
+    await chat.tap("sector:retail"); await chat.tap("country:India"); await chat.tap("salary:skip")
+    await chat.tap("summary:ok")
     r = await chat.say("my visa")
     assert "don't have your visa expiry" in r[0].text
     r = await chat.tap("legal:visa_set")

@@ -23,25 +23,27 @@ async def _events() -> list[str]:
 
 async def test_full_onboarding_english(chat: Chat):
     r = await chat.say("hi")
-    assert r[0].text.startswith("Hi! I'm Rafiq") and "privacy" in r[0].text
+    assert r[0].text.startswith("Hi! I'm Rafiq") and "privacy" in r[0].text and "pay and rights" in r[0].text
     assert chat.ids_of(r) == ["consent:yes", "consent:more", "consent:no"]
     r = await chat.tap("consent:yes")
     assert "What should I call you" in r[0].text
-    r = await chat.say("wanjiru")
-    assert "Nice to meet you, Wanjiru" in r[0].text
-    await chat.tap("stage:offer")
-    await chat.tap("country:Kenya")
-    r = await chat.tap("visa:visit")
-    assert "When does your visa expire" in r[0].text
-    await chat.say("15/03/2027")
-    r = await chat.tap("sector:hospitality")
+    r = await chat.say("wanjiru")                       # employment first: the kind of work comes next
+    assert "Nice to meet you, Wanjiru" in r[0].text and "pay, hours and overtime rules" in r[0].text
+    r = await chat.tap("sector:domestic")
+    assert "Which country" in r[0].text
+    r = await chat.tap("country:Kenya")
+    assert "monthly salary in your contract" in r[0].text and "salary:skip" in chat.ids_of(r)
+    r = await chat.say("1,800")
     s = r[0].text
-    for expected in ("Wanjiru", "I have a job offer", "Kenya", "Visit / tourist visa", "15 March 2027", "Hotels & restaurants"):
+    for expected in ("Wanjiru", "Domestic work", "Kenya", "AED 1,800"):
         assert expected in s, expected
+    assert "Visa" not in s and "Stage" not in s
     r = await chat.tap("summary:ok")
-    assert "You're all set, Wanjiru" in r[0].text
-    assert "menu:more" in chat.ids_of(r) and "pay:wc" in chat.ids_of(r)
+    assert "You're all set, Wanjiru" in r[0].text and "I was promised 1800 but got 1000" in r[0].text
+    assert chat.ids_of(r)[0] == "pay:wc" and "menu:more" in chat.ids_of(r)
     assert "consent_granted" in await _events() and "onboarding_completed" in await _events()
+    r = await chat.say("I only got 1000 salary this month")     # the contract salary from setup is used
+    assert "Potential shortfall: *AED 800*" in r[0].text and "saved contract" in r[0].text
 
 
 async def test_full_onboarding_with_typed_answers(chat: Chat):
@@ -49,43 +51,45 @@ async def test_full_onboarding_with_typed_answers(chat: Chat):
     r = await chat.say("yes")                    # typed instead of tapping
     assert "What should I call you" in r[0].text
     await chat.say("My name is Otieno")
-    r = await chat.say("2")                      # option number
-    assert "Which country" in r[0].text
-    await chat.say("nepal")
-    r = await chat.say("Work / residence visa")
-    assert "When does your visa expire" in r[0].text
-    await chat.say("3 December 2027")
     r = await chat.say("construction")
-    assert "3 December 2027" in r[0].text and "Otieno" in r[0].text and "Nepal" in r[0].text
+    assert "Which country" in r[0].text
+    r = await chat.say("nepal")
+    assert "monthly salary" in r[0].text
+    r = await chat.say("skip")
+    assert "Otieno" in r[0].text and "Nepal" in r[0].text and "Construction" in r[0].text
     r = await chat.say("ok")
     assert "You're all set, Otieno" in r[0].text
 
 
-async def test_visa_without_expiry_skips_date_question(chat: Chat):
-    await chat.say("hi"); await chat.tap("consent:yes")
-    await chat.tap("name:skip"); await chat.tap("stage:planning"); await chat.tap("country:Uganda")
-    r = await chat.tap("visa:none")
-    assert "What kind of work" in r[0].text
+async def test_bad_salary_is_explained(chat: Chat):
+    await chat.say("hi"); await chat.tap("consent:yes"); await chat.tap("name:skip")
+    await chat.tap("sector:retail"); await chat.tap("country:Uganda")
+    r = await chat.say("a lot")
+    assert "just the amount in AED" in r[0].text
+    r = await chat.say("2500")
+    assert "AED 2,500" in r[0].text
 
 
 async def test_other_country_typed(chat: Chat):
     await chat.say("hi"); await chat.tap("consent:yes"); await chat.say("Ali")
-    await chat.tap("stage:planning")
+    await chat.tap("sector:security")
     r = await chat.tap("country:other")
     assert "type the name" in r[0].text
     r = await chat.say("<script>alert(1)</script>")
     assert "couldn't recognise" in r[0].text
     r = await chat.say("south sudan")
-    assert "What UAE visa" in r[0].text
+    assert "monthly salary" in r[0].text
 
 
 # ------------------------------------------------------------------ validation & UX recovery
 
-async def test_invalid_name_and_dates_are_explained(chat: Chat):
+async def test_invalid_name_and_visa_dates_are_explained(chat: Chat):
     await chat.say("hi"); await chat.tap("consent:yes")
     r = await chat.say("12345")
     assert "first name or nickname" in r[0].text
-    await chat.say("Amina"); await chat.tap("stage:arrived"); await chat.tap("country:Kenya"); await chat.tap("visa:employment")
+    await chat.say("Amina"); await chat.tap("sector:hospitality"); await chat.tap("country:Kenya"); await chat.tap("salary:skip")
+    await chat.tap("summary:edit"); await chat.tap("edit:visa")     # visa dates now live in the profile
+    await chat.tap("visa:employment")
     r = await chat.say("next year")
     assert "couldn't read that date" in r[0].text
     r = await chat.say("01/01/2020")
@@ -93,7 +97,7 @@ async def test_invalid_name_and_dates_are_explained(chat: Chat):
     r = await chat.say("01/01/2099")
     assert "too far" in r[0].text
     r = await chat.say("01/06/2027")
-    assert "What kind of work" in r[0].text
+    assert "Here's what I have" in r[0].text
 
 
 async def test_unexpected_text_at_button_step_gets_a_nudge(chat: Chat):
@@ -104,22 +108,25 @@ async def test_unexpected_text_at_button_step_gets_a_nudge(chat: Chat):
 
 async def test_stale_or_forged_button_is_ignored(chat: Chat):
     await chat.say("hi"); await chat.tap("consent:yes"); await chat.say("Ali")
-    r = await chat.tap("sector:hospitality")     # belongs to a later step
-    assert "tap one of the options" in r[0].text and "stage:offer" in chat.ids_of(r)
-    r = await chat.tap("stage:../../admin")      # forged id
+    r = await chat.tap("country:Kenya")          # belongs to a later step
+    assert "tap one of the options" in r[0].text and "sector:hospitality" in chat.ids_of(r)
+    r = await chat.tap("sector:../../admin")     # forged id
     assert "tap one of the options" in r[0].text
 
 
 async def test_edit_from_summary_returns_to_summary(chat: Chat):
     await chat.say("hi"); await chat.tap("consent:yes"); await chat.say("Ali")
-    await chat.tap("stage:offer"); await chat.tap("country:Kenya"); await chat.tap("visa:none"); await chat.tap("sector:retail")
+    await chat.tap("sector:retail"); await chat.tap("country:Kenya"); await chat.tap("salary:skip")
     r = await chat.tap("summary:edit")
     assert "What would you like to change" in r[0].text
-    await chat.tap("edit:visa")
+    await chat.tap("edit:salary")
+    r = await chat.say("2000")
+    assert "Here's what I have" in r[0].text and "AED 2,000" in r[0].text
+    await chat.tap("summary:edit"); await chat.tap("edit:visa")
     r = await chat.tap("visa:employment")          # needs a date, even mid-edit
     assert "When does your visa expire" in r[0].text
     r = await chat.say("20/08/2027")
-    assert "Here's what I have" in r[0].text and "20 August 2027" in r[0].text
+    assert "Here's what I have" in r[0].text
 
 
 async def test_media_during_onboarding_is_handled_gracefully(chat: Chat):

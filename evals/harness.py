@@ -105,10 +105,12 @@ async def run(cases: Any, *, live: bool = False) -> tuple[list[Result], dict[str
             ctx = {"intent_model": model} if live else {"intent_model": None, "doc_model": None, "fx_fetcher": no_fx}
             return await process_message(msg, kv=kv, send=send, today=TODAY, relay=relay, agent_context=ctx)
 
-        # Standard onboarding (not scored).
-        for kind, value in (("say", "hi"), ("tap", "consent:yes"), ("say", "Amina"), ("tap", "stage:offer"),
-                            ("tap", "country:Kenya"), ("tap", "visa:visit"), ("say", "15/03/2027"),
-                            ("tap", f"sector:{case.sector}"), ("tap", "summary:ok")):
+        # Standard onboarding (not scored): employment-first setup, then stage and visa via profile edit.
+        for kind, value in (("say", "hi"), ("tap", "consent:yes"), ("say", "Amina"), ("tap", f"sector:{case.sector}"),
+                            ("tap", "country:Kenya"), ("tap", "salary:skip"),
+                            ("tap", "summary:edit"), ("tap", "edit:stage"), ("tap", "stage:offer"),
+                            ("tap", "summary:edit"), ("tap", "edit:visa"), ("tap", "visa:visit"), ("say", "15/03/2027"),
+                            ("tap", "summary:ok")):
             await (go(text=value) if kind == "say" else go(kind="button", button_id=value))
 
         start = time.perf_counter()

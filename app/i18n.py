@@ -58,7 +58,7 @@ S: dict[str, dict[str, str]] = {
     "ask_name": {"en": "Great! What should I call you? You can type a first name or a nickname."},
     "name_invalid": {"en": "Please send just a first name or nickname (letters only, up to 30)."},
     "ask_stage": {"en": "Nice to meet you{name_part}! Where are you in your journey?"},
-    "ask_country": {"en": "Which country are you from?"},
+    "ask_country": {"en": "Which country are you from? (So I can point you to your embassy and helplines.)"},
     "ask_country_other": {"en": "Please type the name of your home country."},
     "country_invalid": {"en": "I couldn't recognise that. Please type the country name, for example *Rwanda*."},
     "ask_visa": {"en": "What UAE visa do you have right now?"},
@@ -77,12 +77,15 @@ S: dict[str, dict[str, str]] = {
         ),
     },
     "expiry_too_far": {"en": "That date looks too far in the future. Please check it and send it again, for example *15/03/2027*."},
-    "ask_sector": {"en": "What kind of work do you do (or want to do)?"},
+    "ask_sector": {"en": "Nice to meet you{name_part}! What kind of work do you do (or are you going to do)? It decides which pay, hours and overtime rules apply to you."},
+    "ask_salary": {"en": "What is your *monthly salary in your contract*, in AED? (For example *1800*.) I use it to check you're paid correctly. You can skip this."},
+    "salary_invalid": {"en": "Please send just the amount in AED, for example *1800*, or tap Skip."},
+    "field_salary": {"en": "Contract salary"},
+    "emp_tip": {"en": "💡 Paid less than agreed? Just tell me, for example: *I was promised 1800 but got 1000*. Or tap *Wage check* below."},
     "summary": {
         "en": (
             "Here's what I have:\n\n"
-            "👤 Name: {name}\n🧭 Stage: {stage}\n🌍 Home country: {country}\n"
-            "🛂 Visa: {visa}\n📅 Visa expiry: {expiry}\n💼 Work: {sector}\n\n"
+            "👤 Name: {name}\n💼 Work: {sector}\n🌍 Home country: {country}\n💵 Contract salary: {salary}\n\n"
             "Is this correct?"
         ),
     },

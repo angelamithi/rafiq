@@ -21,15 +21,7 @@ from tests.conftest import TODAY, Chat, onboard
 
 async def onboard_worker(c: Chat, *, country: str = "Kenya", stage: str = "offer", name: str = "Wanjiru") -> None:
     """Someone with a job offer and a work entry permit on the way."""
-    await c.say("hi")
-    await c.tap("consent:yes")
-    await c.say(name)
-    await c.tap(f"stage:{stage}")
-    await c.tap(f"country:{country}")
-    await c.tap("visa:employment")
-    await c.tap("expiry:skip")
-    await c.tap("sector:hospitality")
-    await c.tap("summary:ok")
+    await onboard(c, name=name, country=country, stage=stage, visa="employment", visa_expiry=None)
 
 
 async def db_user(c: Chat) -> User:
@@ -174,20 +166,14 @@ async def test_already_in_uae_sees_a_note(kv):
     assert "already in the UAE" in r[0].text
 
 
-async def test_onboarding_points_new_travellers_to_the_checklist(kv):
+async def test_setup_no_longer_asks_journey_stage(kv):
     c = Chat(kv, phone="254700000778")
-    await c.say("hi")
-    await c.tap("consent:yes")
-    await c.say("Amina")
-    await c.tap("stage:offer")
-    await c.tap("country:Uganda")
-    await c.tap("visa:none")
-    await c.tap("sector:domestic")
+    await c.say("hi"); await c.tap("consent:yes"); await c.say("Amina")
+    r = await c.tap("stage:offer")                 # old button: ignored, the work-type question stays
+    assert "sector:domestic" in c.ids_of(r)
+    await c.tap("sector:domestic"); await c.tap("country:Uganda"); await c.tap("salary:skip")
     r = await c.tap("summary:ok")
-    assert "Before you fly" in r[0].text
-    resident = Chat(kv, phone="254700000779")
-    await onboard_worker(resident, stage="resident")
-    assert "Before you fly" not in resident.sent[-2].text
+    assert "Before you fly" not in r[0].text and "I was promised" in r[0].text
 
 
 # ------------------------------------------------------------------ travel date
