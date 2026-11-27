@@ -56,7 +56,7 @@ async def test_onboarding_points_new_arrivals_to_the_guide(chat: Chat):
 async def test_menu_and_typed_commands_open_the_guide(chat: Chat):
     await onboard_arrived(chat)
     r = await chat.say("menu")
-    assert "menu:arrive" in chat.ids_of(r)
+    assert "menu:more" in chat.ids_of(r) and "menu:arrive" in chat.ids_of(await chat.tap("menu:more"))
     for opener in ("I just arrived", "arrival", "first weeks"):
         r = await chat.say(opener)
         assert "first weeks in the UAE" in r[-1].text and "0 of 9" in r[-1].text

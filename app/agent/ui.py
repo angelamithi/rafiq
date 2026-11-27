@@ -29,18 +29,30 @@ class MenuItem:
     desc_key: str
 
 
-# Module 1 menu. Later modules insert their items ABOVE these (most useful first).
+# Main menu: the Employment protection agent, in the order a worker needs it.
 MENU_ITEMS: list[MenuItem] = [
-    MenuItem("menu:pay", "menu_pay", "menu_pay_d"),            # Lead: employment protection (wage check)
-    MenuItem("menu:job", "menu_job", "menu_job_d"),            # Job offer + Contract Shield
-    MenuItem("menu:tasks", "menu_tasks", "menu_tasks_d"),      # "Do it for me"
-    MenuItem("menu:legal", "menu_legal", "menu_legal_d"),      # Module 3
-    MenuItem("rnw:menu", "btn_renewals", "menu_renewals_d"),  # Renewals + status check
-    MenuItem("menu:plan", "menu_plan", "menu_plan_d"),         # Module 4
-    MenuItem("menu:arrive", "menu_arrive", "menu_arrive_d"),   # Module 5
-    MenuItem("menu:money", "menu_money", "menu_money_d"),      # Module 8
-    MenuItem("menu:grow", "menu_grow", "menu_grow_d"),          # Career, housing, health, savings, profile
+    MenuItem("pay:wc", "mm_wc", "mm_wc_d"),                    # Flagship: wage check
+    MenuItem("menu:job", "menu_job", "menu_job_d"),            # Job offer + agency check
+    MenuItem("task:contract", "mm_contract", "mm_contract_d"), # Contract Shield: offer vs contract
+    MenuItem("menu:pay", "menu_pay", "menu_pay_d"),            # Salary watch, payslips, rights, gratuity
+    MenuItem("pay:ot", "mm_ot", "mm_ot_d"),                    # Overtime calculator
+    MenuItem("pay:complaint", "mm_complaint", "mm_complaint_d"),
+    MenuItem("case:list", "mm_cases", "mm_cases_d"),           # Case files, evidence packs, follow-ups
+    MenuItem("case:legal", "mm_legal_help", "mm_legal_help_d"),
     MenuItem("menu:help", "menu_help", "menu_help_d"),
+    MenuItem("menu:more", "mm_more", "mm_more_d"),             # everything else Rafiq can do
+]
+
+# "More from Rafiq": the life-in-the-UAE tools, one tap away (and by typing, as before).
+MORE_ITEMS: list[MenuItem] = [
+    MenuItem("menu:tasks", "menu_tasks", "menu_tasks_d"),
+    MenuItem("menu:legal", "menu_legal", "menu_legal_d"),
+    MenuItem("rnw:menu", "btn_renewals", "menu_renewals_d"),
+    MenuItem("menu:plan", "menu_plan", "menu_plan_d"),
+    MenuItem("menu:arrive", "menu_arrive", "menu_arrive_d"),
+    MenuItem("menu:money", "menu_money", "menu_money_d"),
+    MenuItem("menu:grow", "menu_grow", "menu_grow_d"),
+    MenuItem("menu:main", "mm_back", "mm_back_d"),
 ]
 
 EDITABLE = ("name", "stage", "country", "visa", "expiry", "sector")
@@ -136,6 +148,11 @@ def edit_menu(lang: str | None) -> Outgoing:
 def main_menu(lang: str | None, *, intro: str | None = None) -> Outgoing:
     rows = [ListRow(id=i.id, title=t(i.title_key, lang), description=t(i.desc_key, lang)) for i in MENU_ITEMS]
     return Outgoing(text=intro or t("main_menu", lang), menu=ListMenu(button=t("btn_menu_open", lang), rows=rows))
+
+
+def more_menu(lang: str | None) -> Outgoing:
+    rows = [ListRow(id=i.id, title=t(i.title_key, lang), description=t(i.desc_key, lang)) for i in MORE_ITEMS]
+    return Outgoing(text=t("more_menu", lang), menu=ListMenu(button=t("btn_menu_open", lang), rows=rows))
 
 
 def welcome_back(lang: str | None, user: User) -> Outgoing:

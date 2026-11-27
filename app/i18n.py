@@ -21,7 +21,7 @@ DEFAULT_LANGUAGE = "en"
 S: dict[str, dict[str, str]] = {
     # ------------------------------------------------------------------ welcome & consent
     "welcome": {
-        "en": "Hi! I'm Rafiq 👋 I help people working in Dubai stay safe, legal and settled.",
+        "en": "Hi! I'm Rafiq 👋 I help workers in the UAE protect their pay and rights at work.",
     },
     "consent": {
         "en": (
@@ -100,10 +100,27 @@ S: dict[str, dict[str, str]] = {
     "done_no_name": {"en": "You're all set! 🎉\nType *menu* anytime to see what I can do."},
     # ------------------------------------------------------------------ menu & help
     "main_menu": {"en": "What would you like to do?"},
+    "more_menu": {"en": "➕ *More from Rafiq*: life in the UAE beyond work."},
+    "mm_wc": {"en": "Wage check"},
+    "mm_wc_d": {"en": "Paid less than agreed? Work out what's owed"},
+    "mm_contract": {"en": "Compare offer & contract"},
+    "mm_contract_d": {"en": "Photo of both, in English or Arabic"},
+    "mm_ot": {"en": "Overtime calculator"},
+    "mm_ot_d": {"en": "What your extra hours should pay"},
+    "mm_complaint": {"en": "Complaints & letters"},
+    "mm_complaint_d": {"en": "Drafts for you to review and file"},
+    "mm_cases": {"en": "My cases"},
+    "mm_cases_d": {"en": "Evidence, follow-ups, case pack"},
+    "mm_legal_help": {"en": "Free legal help"},
+    "mm_legal_help_d": {"en": "MOHRE 80084 and free lawyers"},
+    "mm_more": {"en": "More from Rafiq"},
+    "mm_more_d": {"en": "Visa, arrival, money, housing, health"},
+    "mm_back": {"en": "Back to main menu"},
+    "mm_back_d": {"en": "Work and pay tools"},
     "welcome_back": {"en": "Welcome back{name_part}! 👋 What would you like to do?"},
     "help": {
         "en": (
-            "I'm Rafiq, your guide for working in Dubai.\n\n"
+            "I'm Rafiq, your employment protection agent for working in the UAE.\n\n"
             "*You can type these anytime:*\n"
             "• *menu* – see what I can do\n"
             "• *profile* – your details\n"

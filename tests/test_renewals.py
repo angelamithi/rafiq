@@ -18,7 +18,7 @@ from tests.test_tasks import db_user
 async def test_renewals_is_first_in_the_menu(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert "rnw:menu" in chat.ids_of(r)
+    assert "rnw:menu" in chat.ids_of(await chat.tap("menu:more"))
 
 
 async def test_overview_uses_known_dates_and_flags_a_short_passport(chat: Chat):

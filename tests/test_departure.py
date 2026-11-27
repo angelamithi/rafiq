@@ -47,7 +47,7 @@ def rows(out) -> list:
 async def test_menu_and_typed_commands_open_the_checklist(chat: Chat):
     await onboard_worker(chat)
     r = await chat.say("menu")
-    assert "menu:plan" in chat.ids_of(r)
+    assert "menu:plan" in chat.ids_of(await chat.tap("menu:more"))
     for opener in (lambda: chat.tap("menu:plan"), lambda: chat.say("checklist"), lambda: chat.say("What should I pack?"),
                    lambda: chat.say("before you fly")):
         r = await opener()
@@ -229,7 +229,7 @@ async def test_skip_and_escape_while_asking_for_date(chat: Chat):
     assert "No problem" in r[0].text
     await chat.tap("plan:date")
     r = await chat.say("menu")                             # global commands still work
-    assert "menu:plan" in chat.ids_of(r)
+    assert "menu:more" in chat.ids_of(r) and "menu:plan" in chat.ids_of(await chat.tap("menu:more"))
     r = await chat.say("15/01/2027")                       # no longer waiting: not saved
     assert (await db_user(chat)).plan is None or repo.get_travel_date(await db_user(chat)) is None
     await chat.tap("plan:date")

@@ -54,7 +54,7 @@ async def test_missing_amount_asks_for_both(chat: Chat):
 async def test_wage_check_from_the_menu_and_after_missing_amounts(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert chat.ids_of(r)[0] == "menu:pay"                       # employment protection leads the menu
+    assert chat.ids_of(r)[0] == "pay:wc"                         # employment protection leads the menu
     r = await chat.tap("menu:pay")
     assert "pay:wc" in chat.ids_of(r)
     r = await chat.tap("pay:wc")
@@ -64,3 +64,24 @@ async def test_wage_check_from_the_menu_and_after_missing_amounts(chat: Chat):
     await chat.say("my boss paid me less salary than agreed again")   # missing amounts -> waits for them
     r = await chat.say("agreed 2000 got 1500")
     assert "Potential shortfall: *AED 500*" in r[0].text
+
+
+async def _opens(chat: Chat, items) -> None:
+    from app.i18n import t
+
+    await onboard(chat)
+    for item in items:                    # few enough taps to stay under the 20-a-minute rate limit
+        r = await chat.tap(item.id)
+        assert r and t("didnt_understand", None) not in (r[0].text or ""), item.id
+
+
+async def test_every_main_menu_row_opens_something(chat: Chat):
+    from app.agent import ui
+
+    await _opens(chat, ui.MENU_ITEMS)
+
+
+async def test_every_more_menu_row_opens_something(chat: Chat):
+    from app.agent import ui
+
+    await _opens(chat, ui.MORE_ITEMS)

@@ -246,7 +246,7 @@ async def menu(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     cmd = state.get("command")
     action = {
         "menu:main": "menu", "menu:profile": "profile", "menu:privacy": "privacy",
-        "menu:help": "help", "profile:edit": "edit",
+        "menu:help": "help", "profile:edit": "edit", "menu:more": "more",
     }.get(bid) or cmd or "menu"
     onboarding_active = user.step in ONBOARDING_STEPS
 
@@ -276,6 +276,8 @@ async def menu(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         return _out(state, ui.text("resumed", lang), ui.main_menu(lang), events=_event(state, "notifications_resumed"))
     if action == "greeting":
         return _out(state, ui.welcome_back(lang, user))
+    if action == "more":
+        return _out(state, ui.more_menu(lang))
     return _out(state, ui.main_menu(lang))
 
 

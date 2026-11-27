@@ -21,7 +21,7 @@ Limits: the cases were written by the Rafiq team, so a high score shows the agen
 | protection | 8 | 8 |
 | wellbeing | 5 | 5 |
 
-Average time per case: 23 ms (excluding network to WhatsApp).
+Average time per case: 22 ms (excluding network to WhatsApp).
 AI cost in this mode: USD 0. Rules handle every case here; the AI only reads photos, voice notes and messages the rules don't recognise.
 
 ## All cases

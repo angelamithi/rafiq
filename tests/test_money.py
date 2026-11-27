@@ -21,7 +21,7 @@ def rows(out) -> list:
 async def test_main_menu_is_at_whatsapps_limit_and_includes_money(chat: Chat):
     await onboard(chat)
     r = await chat.say("menu")
-    assert "menu:money" in chat.ids_of(r)
+    assert len(chat.ids_of(r)) == 10 and "menu:money" in chat.ids_of(await chat.tap("menu:more"))
     assert len(ui.MENU_ITEMS) <= 10                # WhatsApp list maximum
 
 
